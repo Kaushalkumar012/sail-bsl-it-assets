@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![SAIL BSL](https://www.uxdt.nic.in/wp-content/uploads/2020/06/Sail.jpg)
+<img src="https://www.uxdt.nic.in/wp-content/uploads/2020/06/Sail.jpg" width="120" alt="SAIL BSL"/>
 
 **Centralized IT Infrastructure Tracking System**
 *Bokaro Steel Plant — Steel Authority of India Limited*
