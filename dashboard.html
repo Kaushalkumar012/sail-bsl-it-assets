@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SAIL BSL – IT Asset Dashboard</title>
+  <link rel="icon" href="https://www.uxdt.nic.in/wp-content/uploads/2020/06/Sail.jpg"/>
+  <link rel="stylesheet" href="dashboard.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo"><img src="https://www.uxdt.nic.in/wp-content/uploads/2020/06/Sail.jpg" alt="SAIL" onerror="this.parentElement.innerHTML='<i class=\'fas fa-industry\' style=\'color:#1d4ed8;font-size:18px\'></i>'"/></div>
+      <div>
+        <div class="sb-name">SAIL BSL</div>
+        <div class="sb-sub">IT Asset Mgmt</div>
+      </div>
+    </div>
+
+    <nav class="sb-nav" id="sb-nav">
+      <a href="#" class="nav-item active" data-page="overview" onclick="showPage('overview',this)">
+        <i class="fas fa-th-large"></i><span>Overview</span>
+      </a>
+      <a href="#" class="nav-item" data-page="assets" onclick="showPage('assets',this)">
+        <i class="fas fa-desktop"></i><span>Assets</span>
+      </a>
+      <a href="#" class="nav-item" data-page="employees" onclick="showPage('employees',this)" id="nav-employees">
+        <i class="fas fa-users"></i><span>Employees</span>
+      </a>
+      <a href="#" class="nav-item" data-page="departments" onclick="showPage('departments',this)" id="nav-departments">
+        <i class="fas fa-building"></i><span>Departments</span>
+      </a>
+      <a href="#" class="nav-item" data-page="reports" onclick="showPage('reports',this)">
+        <i class="fas fa-chart-pie"></i><span>Reports</span>
+      </a>
+      <a href="#" class="nav-item" data-page="issues" onclick="showPage('issues',this)" id="nav-issues">
+        <i class="fas fa-triangle-exclamation"></i><span>Issues</span>
+      </a>
+      <a href="#" class="nav-item" data-page="myasset" onclick="showPage('myasset',this)" id="nav-myasset">
+        <i class="fas fa-laptop"></i><span>My Asset</span>
+      </a>
+    </nav>
+
+    <div class="sb-footer">
+      <div class="sb-user">
+        <div class="avatar" id="sb-avatar">U</div>
+        <div class="sb-user-info">
+          <div class="sb-uname" id="sb-uname">Loading...</div>
+          <div class="sb-urole" id="sb-urole">—</div>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="logout()" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="tb-left">
+        <button class="menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+        <div class="page-title" id="page-title">Overview</div>
+      </div>
+      <div class="tb-right">
+        <div class="search-wrap">
+          <i class="fas fa-search"></i>
+          <input type="text" id="global-search" placeholder="Search employee, asset, serial no..." oninput="globalSearch(this.value)"/>
+          <kbd>⌘K</kbd>
+        </div>
+        <div class="tb-user">
+          <div class="avatar-sm" id="tb-avatar">U</div>
+          <div>
+            <div class="tb-uname" id="tb-uname">User</div>
+            <div class="tb-urole" id="tb-urole">—</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- OVERVIEW -->
+      <div id="page-overview" class="page active">
+        <div class="welcome-card" id="welcome-card">
+          <div class="wc-left">
+            <div class="wc-badge" id="wc-badge">IT Asset Management</div>
+            <h2 id="wc-title">Welcome back!</h2>
+            <p id="wc-sub">Here's your complete IT asset overview</p>
+            <div class="wc-meta" id="wc-meta"></div>
+          </div>
+          <div class="wc-right">
+            <div class="wc-icon"><i class="fas fa-server"></i></div>
+          </div>
+        </div>
+
+        <div class="kpi-grid" id="kpi-grid"></div>
+
+        <div class="charts-row">
+          <div class="chart-card span2">
+            <div class="chart-hdr"><h3><i class="fas fa-chart-bar"></i> Assets by Department (Top 15)</h3></div>
+            <div class="chart-body"><canvas id="deptChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-hdr"><h3><i class="fas fa-circle-half-stroke"></i> PC Make Distribution</h3></div>
+            <div class="chart-body"><canvas id="pcMakeChart"></canvas></div>
+          </div>
+        </div>
+
+        <div class="charts-row three">
+          <div class="chart-card">
+            <div class="chart-hdr"><h3><i class="fas fa-memory"></i> RAM Distribution</h3></div>
+            <div class="chart-body"><canvas id="ramChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-hdr"><h3><i class="fab fa-windows"></i> OS Distribution</h3></div>
+            <div class="chart-body"><canvas id="osChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-hdr"><h3><i class="fas fa-print"></i> Printer Brands</h3></div>
+            <div class="chart-body"><canvas id="printerChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ASSETS -->
+      <div id="page-assets" class="page">
+        <div class="toolbar">
+          <div class="tb-filters">
+            <div class="search-input-wrap">
+              <i class="fas fa-search"></i>
+              <input type="text" id="asset-search" placeholder="Search assets..." oninput="filterAssets(this.value)"/>
+            </div>
+            <select class="sel" id="asset-dept-filter" onchange="filterAssets()">
+              <option value="">All Departments</option>
+            </select>
+            <select class="sel" id="asset-pc-filter" onchange="filterAssets()">
+              <option value="">All PC Makes</option>
+              <option>ACER</option><option>HP</option><option>HLBS AIO</option><option>ACER AIO</option>
+            </select>
+          </div>
+          <div class="tb-actions">
+            <span class="rec-count" id="asset-count">0 records</span>
+            <button class="btn-export" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl" id="assets-table">
+            <thead>
+              <tr>
+                <th>Tag No.</th><th>Staff No.</th><th>Name</th><th>Department</th>
+                <th>Location</th><th>PC Make</th><th>PC Model</th><th>Serial No.</th>
+                <th>Monitor</th><th>Printer</th><th>OS</th><th>RAM</th><th>Domain</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="assets-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="asset-pagination"></div>
+      </div>
+
+      <!-- EMPLOYEES -->
+      <div id="page-employees" class="page">
+        <div class="toolbar">
+          <div class="tb-filters">
+            <div class="search-input-wrap">
+              <i class="fas fa-search"></i>
+              <input type="text" id="emp-search" placeholder="Search employees..." oninput="filterEmployees(this.value)"/>
+            </div>
+            <select class="sel" id="emp-dept-filter" onchange="filterEmployees()">
+              <option value="">All Departments</option>
+            </select>
+          </div>
+          <div class="tb-actions">
+            <span class="rec-count" id="emp-count">0 records</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead>
+              <tr><th>Tag No.</th><th>Staff No.</th><th>P. No.</th><th>Name</th><th>Department</th><th>Section</th><th>Location</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="emp-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="emp-pagination"></div>
+      </div>
+
+      <!-- DEPARTMENTS -->
+      <div id="page-departments" class="page">
+        <div class="dept-grid" id="dept-grid"></div>
+      </div>
+
+      <!-- REPORTS -->
+      <div id="page-reports" class="page">
+        <div class="reports-grid">
+          <div class="report-card"><h3><i class="fas fa-desktop"></i> PC Inventory</h3><div id="pc-summary"></div></div>
+          <div class="report-card"><h3><i class="fas fa-print"></i> Printer Summary</h3><div id="printer-summary"></div></div>
+          <div class="report-card"><h3><i class="fas fa-bolt"></i> UPS Summary</h3><div id="ups-summary"></div></div>
+          <div class="report-card"><h3><i class="fas fa-network-wired"></i> Domain Status</h3><div id="domain-summary"></div></div>
+          <div class="report-card"><h3><i class="fas fa-barcode"></i> Scanner Summary</h3><div id="scanner-summary"></div></div>
+          <div class="report-card"><h3><i class="fas fa-circle-check"></i> TRINETRA Status</h3><div id="trinetra-summary"></div></div>
+        </div>
+        <div class="chart-card" style="margin-top:20px">
+          <div class="chart-hdr"><h3><i class="fas fa-chart-line"></i> All Departments — Asset Count</h3></div>
+          <div class="chart-body" style="height:380px"><canvas id="fullDeptChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ISSUES -->
+      <div id="page-issues" class="page">
+        <div class="toolbar">
+          <div class="tb-filters">
+            <select class="sel" id="issue-type-filter" onchange="filterIssues()">
+              <option value="">All Issue Types</option>
+              <option value="no_serial">Missing Serial No.</option>
+              <option value="no_os">Missing OS</option>
+              <option value="no_ram">Missing RAM</option>
+              <option value="no_hostname">Missing Hostname</option>
+              <option value="no_mac">Missing MAC Address</option>
+              <option value="not_domain">Not on Domain</option>
+              <option value="not_trinetra">TRINETRA Inactive</option>
+              <option value="no_monitor">No Monitor</option>
+            </select>
+            <select class="sel" id="issue-dept-filter" onchange="filterIssues()">
+              <option value="">All Departments</option>
+            </select>
+          </div>
+          <div class="tb-actions">
+            <span class="rec-count" id="issue-count">0 issues</span>
+            <button class="btn-export" onclick="exportIssuesCSV()"><i class="fas fa-download"></i> Export</button>
+          </div>
+        </div>
+        <div id="issue-summary-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px"></div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead>
+              <tr><th>Tag No.</th><th>Staff No.</th><th>Name</th><th>Department</th><th>Issues</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="issues-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="issue-pagination"></div>
+      </div>
+
+      <!-- MY ASSET -->
+      <div id="page-myasset" class="page">
+        <div id="my-asset-content"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-hdr">
+        <h3 id="modal-title">Details</h3>
+        <button class="modal-close" onclick="closeModal()"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-foot" id="modal-foot"></div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="dashboard.js"></script>
+  <script>
+    // Close sidebar on backdrop click (mobile)
+    document.addEventListener('click', e => {
+      const sb = document.getElementById('sidebar');
+      if (sb.classList.contains('open') && !sb.contains(e.target) && !e.target.closest('.menu-btn')) {
+        sb.classList.remove('open');
+      }
+    });
+    // ⌘K / Ctrl+K focuses global search
+    document.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('global-search').focus();
+      }
+    });
+  </script>
+</body>
+</html>

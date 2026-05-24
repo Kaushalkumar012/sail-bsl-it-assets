@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SAIL BSL — IT Asset Management System</title>
+  <link rel="icon" href="https://www.uxdt.nic.in/wp-content/uploads/2020/06/Sail.jpg"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --blue:#1a56db;--blue2:#1341a8;--blue3:rgba(26,86,219,0.12);
+      --dark:#060d1f;--dark2:#0c1528;--dark3:#111e35;--dark4:#1a2d4a;
+      --text:#f0f6ff;--muted:#7a9cc0;--border:rgba(255,255,255,0.07);
+      --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+    }
+    html,body{height:100%}
+    body{font-family:'Inter',sans-serif;background:var(--dark);color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;position:relative}
+
+    /* ── BACKGROUND ── */
+    .bg-wrap{position:fixed;inset:0;z-index:0;pointer-events:none}
+    .bg-wrap::before{content:'';position:absolute;inset:0;background:
+      radial-gradient(ellipse 80% 60% at 15% 50%,rgba(26,86,219,0.18) 0%,transparent 70%),
+      radial-gradient(ellipse 60% 50% at 85% 20%,rgba(99,60,219,0.12) 0%,transparent 60%),
+      radial-gradient(ellipse 50% 40% at 70% 85%,rgba(16,185,129,0.07) 0%,transparent 60%),
+      linear-gradient(160deg,#060d1f 0%,#0c1528 100%)}
+    .grid{position:absolute;inset:0;background-image:
+      linear-gradient(rgba(26,86,219,0.04) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(26,86,219,0.04) 1px,transparent 1px);
+      background-size:50px 50px}
+    .orb{position:absolute;border-radius:50%;filter:blur(80px);animation:orb 15s ease-in-out infinite}
+    .o1{width:600px;height:600px;background:rgba(26,86,219,0.1);top:-200px;left:-200px}
+    .o2{width:500px;height:500px;background:rgba(99,60,219,0.08);bottom:-150px;right:-150px;animation-delay:5s}
+    .o3{width:350px;height:350px;background:rgba(16,185,129,0.06);top:40%;left:40%;animation-delay:10s}
+    @keyframes orb{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(20px,-20px) scale(1.08)}}
+
+    /* ── WRAPPER ── */
+    .wrap{position:relative;z-index:1;display:flex;width:100%;max-width:1080px;min-height:640px;border-radius:24px;overflow:hidden;box-shadow:0 50px 100px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.05);margin:16px}
+
+    /* ── LEFT PANEL ── */
+    .left{width:420px;flex-shrink:0;background:linear-gradient(160deg,#0f2460 0%,#0c1a40 40%,#060d1f 100%);padding:48px 40px;display:flex;flex-direction:column;gap:28px;position:relative;overflow:hidden}
+    .left::after{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:rgba(255,255,255,0.03);pointer-events:none}
+    .left::before{content:'';position:absolute;bottom:-80px;left:-80px;width:300px;height:300px;border-radius:50%;background:rgba(26,86,219,0.06);pointer-events:none}
+
+    /* Logo area */
+    .logo-area{display:flex;align-items:center;gap:16px}
+    .logo-box{width:72px;height:72px;border-radius:16px;background:white;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+    .logo-box img{width:100%;height:100%;object-fit:contain}
+    .logo-text{}
+    .logo-text .org{font-size:22px;font-weight:900;color:white;letter-spacing:2px;line-height:1}
+    .logo-text .plant{font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px}
+    .logo-text .divider{width:32px;height:2px;background:linear-gradient(90deg,var(--amber),transparent);margin:6px 0}
+
+    /* Status badge */
+    .status-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);border-radius:20px;padding:6px 14px;width:fit-content}
+    .dot{width:7px;height:7px;border-radius:50%;background:#10b981;animation:blink 2s infinite}
+    @keyframes blink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,0.4)}50%{opacity:0.6;box-shadow:0 0 0 4px rgba(16,185,129,0)}}
+    .status-badge span{font-size:11px;font-weight:600;color:#34d399;letter-spacing:0.5px}
+
+    /* Heading */
+    .left-heading h2{font-size:22px;font-weight:800;color:white;line-height:1.4;margin-bottom:8px}
+    .left-heading p{font-size:13px;color:rgba(255,255,255,0.5);line-height:1.7}
+
+    /* Stats */
+    .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .stat-box{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 10px;text-align:center}
+    .stat-box .num{font-size:24px;font-weight:900;color:var(--amber);display:block;line-height:1}
+    .stat-box .lbl{font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;margin-top:4px;display:block}
+
+    /* Features */
+    .feat-list{display:flex;flex-direction:column;gap:10px}
+    .feat-item{display:flex;align-items:center;gap:12px}
+    .feat-icon{width:32px;height:32px;border-radius:9px;background:rgba(26,86,219,0.2);border:1px solid rgba(26,86,219,0.3);display:flex;align-items:center;justify-content:center;font-size:12px;color:#60a5fa;flex-shrink:0}
+    .feat-item span{font-size:13px;color:rgba(255,255,255,0.65);font-weight:500}
+
+    /* Footer note */
+    .left-footer{margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06)}
+    .left-footer p{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6}
+
+    /* ── RIGHT PANEL ── */
+    .right{flex:1;background:var(--dark3);display:flex;align-items:center;justify-content:center;padding:40px 44px}
+    .form-card{width:100%;max-width:380px}
+
+    /* Form header */
+    .form-hdr{margin-bottom:28px}
+    .form-hdr .welcome{font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .form-hdr .welcome::before{content:'';width:20px;height:2px;background:var(--blue);border-radius:1px}
+    .form-hdr h3{font-size:26px;font-weight:800;color:var(--text);margin-bottom:6px}
+    .form-hdr p{font-size:13px;color:var(--muted)}
+
+    /* Role tabs */
+    .role-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--dark2);border-radius:14px;padding:5px;margin-bottom:24px}
+    .rtab{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border:none;border-radius:10px;background:transparent;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;transition:all 0.25s;font-family:'Inter',sans-serif;letter-spacing:0.3px}
+    .rtab i{font-size:16px;margin-bottom:2px}
+    .rtab:hover{color:var(--text);background:rgba(255,255,255,0.04)}
+    .rtab.active{background:linear-gradient(135deg,var(--blue),var(--blue2));color:white;box-shadow:0 4px 16px rgba(26,86,219,0.45)}
+
+    /* Fields */
+    .fgroup{display:flex;flex-direction:column;gap:16px;margin-bottom:4px}
+    .fgroup.hidden{display:none}
+    .field{display:flex;flex-direction:column;gap:7px}
+    .field label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;display:flex;align-items:center;gap:6px}
+    .field label i{color:var(--blue);font-size:10px}
+    .field input,.field select{
+      background:var(--dark2);border:1.5px solid var(--border);border-radius:12px;
+      padding:13px 16px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;
+      outline:none;width:100%;transition:all 0.2s;
+    }
+    .field input:focus,.field select:focus{border-color:var(--blue);background:rgba(26,86,219,0.07);box-shadow:0 0 0 3px rgba(26,86,219,0.15)}
+    .field input::placeholder{color:rgba(122,156,192,0.5)}
+    .field select option{background:var(--dark3);color:var(--text)}
+    .field .hint{font-size:11px;color:rgba(122,156,192,0.7);display:flex;align-items:center;gap:5px}
+    .field .hint i{color:var(--amber);font-size:10px}
+
+    /* Password wrap */
+    .pw-wrap{position:relative}
+    .pw-wrap input{padding-right:46px}
+    .pw-eye{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);cursor:pointer;font-size:14px;transition:color 0.2s;background:none;border:none;padding:0}
+    .pw-eye:hover{color:var(--blue)}
+
+    /* Info box for dept */
+    .info-box{background:rgba(26,86,219,0.08);border:1px solid rgba(26,86,219,0.2);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
+    .info-box i{color:#60a5fa;font-size:14px;margin-top:1px;flex-shrink:0}
+    .info-box p{font-size:12px;color:rgba(148,196,255,0.8);line-height:1.5}
+    .info-box strong{color:#93c5fd}
+
+    /* Error */
+    .err-box{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-top:4px}
+    .err-box.hidden{display:none}
+    .err-box i{color:#f87171;font-size:14px;flex-shrink:0}
+    .err-box span{font-size:13px;color:#fca5a5}
+
+    /* Attempts warning */
+    .attempts-warn{font-size:11px;color:var(--amber);text-align:center;margin-top:6px;display:none}
+
+    /* Submit btn */
+    .submit-btn{
+      width:100%;margin-top:20px;padding:15px;
+      background:linear-gradient(135deg,var(--blue),var(--blue2));
+      border:none;border-radius:14px;color:white;font-size:15px;font-weight:700;
+      cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.25s;
+      box-shadow:0 4px 20px rgba(26,86,219,0.4);
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      letter-spacing:0.3px;position:relative;overflow:hidden;
+    }
+    .submit-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.1),transparent);opacity:0;transition:opacity 0.2s}
+    .submit-btn:hover::before{opacity:1}
+    .submit-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(26,86,219,0.55)}
+    .submit-btn:active{transform:translateY(0)}
+    .submit-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+
+    /* Credentials info */
+    .cred-info{margin-top:22px;padding-top:18px;border-top:1px solid var(--border)}
+    .cred-info .cred-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+    .cred-title i{color:var(--amber)}
+    .cred-rows{display:flex;flex-direction:column;gap:8px}
+    .cred-row{display:flex;align-items:center;justify-content:space-between;background:var(--dark2);border:1px solid var(--border);border-radius:10px;padding:9px 14px;cursor:pointer;transition:all 0.2s}
+    .cred-row:hover{border-color:rgba(26,86,219,0.4);background:rgba(26,86,219,0.06)}
+    .cred-row-left{display:flex;align-items:center;gap:10px}
+    .cred-row-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+    .ci-staff{background:rgba(26,86,219,0.15);color:#60a5fa}
+    .ci-dept{background:rgba(245,158,11,0.15);color:#fbbf24}
+    .ci-hr{background:rgba(139,92,246,0.15);color:#a78bfa}
+    .cred-row-text .cr-label{font-size:12px;font-weight:600;color:var(--text)}
+    .cred-row-text .cr-val{font-size:11px;color:var(--muted);margin-top:1px}
+    .cred-row-arrow{color:var(--muted);font-size:11px}
+
+    @media(max-width:820px){
+      .wrap{flex-direction:column;min-height:auto}
+      .left{width:100%;padding:28px 24px;gap:20px}
+      .stats-row{grid-template-columns:repeat(3,1fr)}
+      .right{padding:28px 24px}
+      .left-footer{display:none}
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-wrap">
+  <div class="grid"></div>
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- LEFT -->
+  <div class="left">
+    <div class="logo-area">
+      <div class="logo-box">
+        <img src="https://www.uxdt.nic.in/wp-content/uploads/2020/06/Sail.jpg" alt="SAIL"
+          onerror="this.parentElement.innerHTML='<i class=\'fas fa-industry\' style=\'font-size:28px;color:#1a56db\'></i>'"/>
+      </div>
+      <div class="logo-text">
+        <div class="org">SAIL BSL</div>
+        <div class="divider"></div>
+        <div class="plant">Bokaro Steel Plant</div>
+      </div>
+    </div>
+
+    <div class="status-badge">
+      <div class="dot"></div>
+      <span>System Online &amp; Secure</span>
+    </div>
+
+    <div class="left-heading">
+      <h2>IT Asset Management<br/>System</h2>
+      <p>Centralized tracking &amp; management of all IT infrastructure assets across all departments of BSL.</p>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box"><span class="num" id="s-total">—</span><span class="lbl">Assets</span></div>
+      <div class="stat-box"><span class="num" id="s-depts">—</span><span class="lbl">Depts</span></div>
+      <div class="stat-box"><span class="num">100%</span><span class="lbl">Tracked</span></div>
+    </div>
+
+    <div class="feat-list">
+      <div class="feat-item"><div class="feat-icon"><i class="fas fa-desktop"></i></div><span>PC &amp; Peripherals Tracking</span></div>
+      <div class="feat-item"><div class="feat-icon"><i class="fas fa-print"></i></div><span>Printer &amp; Scanner Registry</span></div>
+      <div class="feat-item"><div class="feat-icon"><i class="fas fa-network-wired"></i></div><span>Network Asset Monitoring</span></div>
+      <div class="feat-item"><div class="feat-icon"><i class="fas fa-chart-bar"></i></div><span>Department-wise Analytics</span></div>
+    </div>
+
+    <div class="left-footer">
+      <p>© 2024 Steel Authority of India Limited — Bokaro Steel Plant<br/>IT Department · Confidential System</p>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <div class="form-card">
+
+      <div class="form-hdr">
+        <div class="welcome">Secure Access Portal</div>
+        <h3>Sign In to Dashboard</h3>
+        <p>Use your SAIL credentials to access the system</p>
+      </div>
+
+      <!-- Role Tabs -->
+      <div class="role-tabs">
+        <button class="rtab active" data-role="staff" onclick="switchRole('staff')">
+          <i class="fas fa-id-card"></i>Staff Login
+        </button>
+        <button class="rtab" data-role="dept" onclick="switchRole('dept')">
+          <i class="fas fa-building"></i>Dept. Head
+        </button>
+        <button class="rtab" data-role="hr" onclick="switchRole('hr')">
+          <i class="fas fa-shield-halved"></i>HR Admin
+        </button>
+      </div>
+
+      <form id="loginForm" onsubmit="handleLogin(event)" autocomplete="off">
+
+        <!-- STAFF -->
+        <div class="fgroup" id="staff-fields">
+          <div class="field">
+            <label><i class="fas fa-id-badge"></i> Staff Number</label>
+            <input type="text" id="staff_id" placeholder="Enter your Staff No. (e.g. 726060)" maxlength="10"/>
+            <span class="hint"><i class="fas fa-circle-info"></i> Your 6-digit Staff Number from your ID card</span>
+          </div>
+          <div class="field">
+            <label><i class="fas fa-lock"></i> Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="staff_pass" placeholder="Enter password"/>
+              <button type="button" class="pw-eye" onclick="togglePw('staff_pass',this)"><i class="fas fa-eye"></i></button>
+            </div>
+            <span class="hint"><i class="fas fa-key"></i> Default password is your Staff Number</span>
+          </div>
+        </div>
+
+        <!-- DEPT HEAD -->
+        <div class="fgroup hidden" id="dept-fields">
+          <div class="field">
+            <label><i class="fas fa-building"></i> Select Department</label>
+            <select id="dept_select"><option value="">— Choose your Department —</option></select>
+          </div>
+          <div class="field">
+            <label><i class="fas fa-lock"></i> Department Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="dept_pass" placeholder="Enter department password"/>
+              <button type="button" class="pw-eye" onclick="togglePw('dept_pass',this)"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+          <div class="info-box">
+            <i class="fas fa-circle-info"></i>
+            <p>Default password: <strong id="dept-pass-hint">DeptName + @BSL</strong><br/>e.g. for ACVS → <strong>ACVS@BSL</strong></p>
+          </div>
+        </div>
+
+        <!-- HR ADMIN -->
+        <div class="fgroup hidden" id="hr-fields">
+          <div class="field">
+            <label><i class="fas fa-user-shield"></i> Admin Username</label>
+            <input type="text" id="hr_id" placeholder="Enter Admin ID"/>
+          </div>
+          <div class="field">
+            <label><i class="fas fa-lock"></i> Admin Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="hr_pass" placeholder="Enter admin password"/>
+              <button type="button" class="pw-eye" onclick="togglePw('hr_pass',this)"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="err-box hidden" id="err-box">
+          <i class="fas fa-triangle-exclamation"></i>
+          <span id="err-text">Error</span>
+        </div>
+        <div class="attempts-warn" id="attempts-warn"></div>
+
+        <button type="submit" class="submit-btn" id="submit-btn">
+          <span id="btn-label"><i class="fas fa-right-to-bracket"></i>&nbsp; Sign In Securely</span>
+          <span id="btn-loading" style="display:none"><i class="fas fa-spinner fa-spin"></i>&nbsp; Authenticating...</span>
+        </button>
+      </form>
+
+      <!-- Credentials Guide -->
+      <div class="cred-info">
+        <div class="cred-title"><i class="fas fa-circle-question"></i> Login Credentials Guide</div>
+        <div class="cred-rows">
+          <div class="cred-row" onclick="quickFill('staff')">
+            <div class="cred-row-left">
+              <div class="cred-row-icon ci-staff"><i class="fas fa-user"></i></div>
+              <div class="cred-row-text">
+                <div class="cr-label">Staff Login</div>
+                <div class="cr-val">Staff No. as ID &amp; Password</div>
+              </div>
+            </div>
+            <i class="fas fa-arrow-right cred-row-arrow"></i>
+          </div>
+          <div class="cred-row" onclick="quickFill('dept')">
+            <div class="cred-row-left">
+              <div class="cred-row-icon ci-dept"><i class="fas fa-building"></i></div>
+              <div class="cred-row-text">
+                <div class="cr-label">Department Head</div>
+                <div class="cr-val">Select dept → DeptName@BSL</div>
+              </div>
+            </div>
+            <i class="fas fa-arrow-right cred-row-arrow"></i>
+          </div>
+          <div class="cred-row" onclick="quickFill('hr')">
+            <div class="cred-row-left">
+              <div class="cred-row-icon ci-hr"><i class="fas fa-shield-halved"></i></div>
+              <div class="cred-row-text">
+                <div class="cr-label">HR Admin</div>
+                <div class="cr-val">HR-ADMIN / admin@BSL2024</div>
+              </div>
+            </div>
+            <i class="fas fa-arrow-right cred-row-arrow"></i>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="login.js"></script>
+<script>
+  document.getElementById('s-total').textContent = EMPLOYEES.length;
+  document.getElementById('s-depts').textContent = new Set(EMPLOYEES.map(e=>e['Deptt.']).filter(Boolean)).size;
+</script>
+</body>
+</html>
