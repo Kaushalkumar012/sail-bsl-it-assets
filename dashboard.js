@@ -32,7 +32,6 @@ function setupUser() {
   if (user.role === 'staff') {
     document.getElementById('nav-employees').style.display = 'none';
     document.getElementById('nav-departments').style.display = 'none';
-    document.getElementById('nav-issues').style.display = 'none';
   }
 }
 
@@ -618,29 +617,43 @@ function getIssuesFor(emp) {
 function buildAllIssues() {
   let src = EMPLOYEES;
   if (user.role === 'dept_head') src = EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
+  if (user.role === 'staff') src = EMPLOYEES.filter(e => cleanNum(e['Staff No.']) === user.staffNo);
   const type = document.getElementById('issue-type-filter')?.value || '';
   const dept = document.getElementById('issue-dept-filter')?.value || '';
   return src
     .map(e => ({ emp: e, issues: getIssuesFor(e) }))
     .filter(r => r.issues.length > 0)
     .filter(r => !type || r.issues.some(i => i.key === type))
-    .filter(r => !dept || r.emp['Deptt.'] === dept);
+    .filter(r => user.role === 'staff' || !dept || r.emp['Deptt.'] === dept);
 }
 
 function renderIssues() {
   filteredIssues = buildAllIssues();
 
-  // Summary cards
-  const counts = {};
-  ISSUE_CHECKS.forEach(c => counts[c.key] = 0);
-  filteredIssues.forEach(r => r.issues.forEach(i => counts[i.key]++));
-  document.getElementById('issue-summary-grid').innerHTML = ISSUE_CHECKS.map(c => `
-    <div style="background:${SEV_BG[c.severity]};border:1px solid ${SEV_COLOR[c.severity]}33;border-radius:14px;padding:14px 16px;cursor:pointer" onclick="document.getElementById('issue-type-filter').value='${c.key}';filterIssues()">
-      <div style="font-size:22px;font-weight:900;color:${SEV_COLOR[c.severity]}">${counts[c.key]}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">${c.label}</div>
-    </div>`).join('');
+  // Hide dept filter, export and summary grid for staff
+  const isStaff = user.role === 'staff';
+  const deptFilter = document.getElementById('issue-dept-filter');
+  const exportBtn = document.querySelector('[onclick="exportIssuesCSV()"]');
+  const summaryGrid = document.getElementById('issue-summary-grid');
+  if (deptFilter) deptFilter.style.display = isStaff ? 'none' : '';
+  if (exportBtn) exportBtn.style.display = isStaff ? 'none' : '';
+  if (summaryGrid) summaryGrid.style.display = isStaff ? 'none' : '';
 
-  document.getElementById('issue-count').textContent = `${filteredIssues.length} affected records`;
+  // Summary cards (only for hr/dept_head)
+  if (!isStaff) {
+    const counts = {};
+    ISSUE_CHECKS.forEach(c => counts[c.key] = 0);
+    filteredIssues.forEach(r => r.issues.forEach(i => counts[i.key]++));
+    summaryGrid.innerHTML = ISSUE_CHECKS.map(c => `
+      <div style="background:${SEV_BG[c.severity]};border:1px solid ${SEV_COLOR[c.severity]}33;border-radius:14px;padding:14px 16px;cursor:pointer" onclick="document.getElementById('issue-type-filter').value='${c.key}';filterIssues()">
+        <div style="font-size:22px;font-weight:900;color:${SEV_COLOR[c.severity]}">${counts[c.key]}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">${c.label}</div>
+      </div>`).join('');
+  }
+
+  document.getElementById('issue-count').textContent = isStaff
+    ? (filteredIssues.length ? '⚠ Your asset has issues' : '✅ No issues found on your asset')
+    : `${filteredIssues.length} affected records`;
   renderIssuesTable();
 }
 
