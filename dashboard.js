@@ -630,30 +630,65 @@ function buildAllIssues() {
 function renderIssues() {
   filteredIssues = buildAllIssues();
 
-  // Hide dept filter, export and summary grid for staff
   const isStaff = user.role === 'staff';
-  const deptFilter = document.getElementById('issue-dept-filter');
-  const exportBtn = document.querySelector('[onclick="exportIssuesCSV()"]');
-  const summaryGrid = document.getElementById('issue-summary-grid');
-  if (deptFilter) deptFilter.style.display = isStaff ? 'none' : '';
-  if (exportBtn) exportBtn.style.display = isStaff ? 'none' : '';
-  if (summaryGrid) summaryGrid.style.display = isStaff ? 'none' : '';
 
-  // Summary cards (only for hr/dept_head)
-  if (!isStaff) {
-    const counts = {};
-    ISSUE_CHECKS.forEach(c => counts[c.key] = 0);
-    filteredIssues.forEach(r => r.issues.forEach(i => counts[i.key]++));
-    summaryGrid.innerHTML = ISSUE_CHECKS.map(c => `
-      <div style="background:${SEV_BG[c.severity]};border:1px solid ${SEV_COLOR[c.severity]}33;border-radius:14px;padding:14px 16px;cursor:pointer" onclick="document.getElementById('issue-type-filter').value='${c.key}';filterIssues()">
-        <div style="font-size:22px;font-weight:900;color:${SEV_COLOR[c.severity]}">${counts[c.key]}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">${c.label}</div>
-      </div>`).join('');
+  if (isStaff) {
+    // Personal issue view for staff
+    const emp = EMPLOYEES.find(e => cleanNum(e['Staff No.']) === user.staffNo);
+    const issues = emp ? getIssuesFor(emp) : [];
+    document.getElementById('issue-summary-grid').style.display = 'none';
+    document.getElementById('issue-dept-filter').style.display = 'none';
+    document.querySelector('[onclick="exportIssuesCSV()"]').style.display = 'none';
+    document.getElementById('issue-type-filter').style.display = 'none';
+
+    if (!emp) {
+      document.getElementById('issue-count').textContent = 'No asset record found';
+      document.getElementById('issues-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">No asset record found for your account.</td></tr>`;
+      return;
+    }
+
+    if (issues.length === 0) {
+      document.getElementById('issue-count').textContent = '✅ No issues found';
+      document.getElementById('issues-tbody').innerHTML = `
+        <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--muted)">
+          <i class="fas fa-circle-check" style="font-size:40px;color:#10b981;display:block;margin-bottom:12px"></i>
+          <div style="font-size:15px;font-weight:600;color:#10b981;margin-bottom:6px">All Good!</div>
+          <div style="font-size:13px">No issues found on your asset record.</div>
+        </td></tr>`;
+      document.getElementById('issue-pagination').innerHTML = '';
+      return;
+    }
+
+    document.getElementById('issue-count').textContent = `⚠ ${issues.length} issue${issues.length > 1 ? 's' : ''} found on your asset`;
+    document.getElementById('issues-tbody').innerHTML = issues.map(i => `
+      <tr>
+        <td>${emp['TAGGING NO.'] || '-'}</td>
+        <td>${cleanNum(emp['Staff No.'])}</td>
+        <td>${emp['Name'] || '-'}</td>
+        <td><span class="badge badge-dept">${emp['Deptt.'] || '-'}</span></td>
+        <td>
+          <span style="display:inline-flex;align-items:center;gap:4px;background:${SEV_BG[i.severity]};color:${SEV_COLOR[i.severity]};border:1px solid ${SEV_COLOR[i.severity]}44;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:600;margin:2px">
+            <i class="fas fa-circle-exclamation" style="font-size:9px"></i>${i.label}
+          </span>
+        </td>
+        <td><button class="btn-view" onclick="openModal(${EMPLOYEES.indexOf(emp)})">View</button></td>
+      </tr>`).join('');
+    document.getElementById('issue-pagination').innerHTML = '';
+    return;
   }
 
-  document.getElementById('issue-count').textContent = isStaff
-    ? (filteredIssues.length ? '⚠ Your asset has issues' : '✅ No issues found on your asset')
-    : `${filteredIssues.length} affected records`;
+  // HR / Dept Head full view
+  const counts = {};
+  ISSUE_CHECKS.forEach(c => counts[c.key] = 0);
+  filteredIssues.forEach(r => r.issues.forEach(i => counts[i.key]++));
+  document.getElementById('issue-summary-grid').style.display = '';
+  document.getElementById('issue-summary-grid').innerHTML = ISSUE_CHECKS.map(c => `
+    <div style="background:${SEV_BG[c.severity]};border:1px solid ${SEV_COLOR[c.severity]}33;border-radius:14px;padding:14px 16px;cursor:pointer" onclick="document.getElementById('issue-type-filter').value='${c.key}';filterIssues()">
+      <div style="font-size:22px;font-weight:900;color:${SEV_COLOR[c.severity]}">${counts[c.key]}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${c.label}</div>
+    </div>`).join('');
+
+  document.getElementById('issue-count').textContent = `${filteredIssues.length} affected records`;
   renderIssuesTable();
 }
 
