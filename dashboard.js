@@ -29,8 +29,10 @@ function setupUser() {
   document.getElementById('wc-sub').textContent = `Role: ${roleLabel(user.role)} | ${new Date().toDateString()}`;
 
   if (user.role === 'staff') {
-    document.getElementById('nav-employees').style.display = 'none';
-    document.getElementById('nav-departments').style.display = 'none';
+    ['nav-employees','nav-departments','nav-assets','nav-overview','nav-reports'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
   }
   if (user.role === 'dept_head') {
     // hide dept filters — they can only see their own dept
@@ -53,6 +55,11 @@ function setupNav() {
 
 // ===== NAVIGATION =====
 function showPage(name, el) {
+  // Block staff from accessing restricted pages
+  if (user.role === 'staff' && ['overview','assets','employees','departments','reports'].includes(name)) {
+    name = 'myasset';
+    el = document.querySelector('[data-page="myasset"]');
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
@@ -238,11 +245,13 @@ function filterAssets(val) {
   const dept = document.getElementById('asset-dept-filter').value;
   const pc = document.getElementById('asset-pc-filter').value;
 
-  let src = user.role === 'dept_head' ? EMPLOYEES.filter(e => e['Deptt.'] === user.dept) : EMPLOYEES;
+  let src = EMPLOYEES;
+  if (user.role === 'dept_head') src = EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
+  if (user.role === 'staff') src = EMPLOYEES.filter(e => cleanNum(e['Staff No.']) === user.staffNo);
 
   filteredAssets = src.filter(e => {
     const matchSearch = !search || Object.values(e).some(v => String(v).toLowerCase().includes(search));
-    const matchDept = user.role === 'dept_head' || !dept || e['Deptt.'] === dept;
+    const matchDept = (user.role === 'dept_head' || user.role === 'staff') || !dept || e['Deptt.'] === dept;
     const matchPc = !pc || e['PC Make'] === pc;
     return matchSearch && matchDept && matchPc;
   });
@@ -597,6 +606,7 @@ function closeModal() {
 
 // ===== GLOBAL SEARCH =====
 function globalSearch(val) {
+  if (user.role === 'staff') return; // staff cannot search all records
   showPage('assets', document.querySelector('[data-page="assets"]'));
   document.getElementById('asset-search').value = val;
   filterAssets(val || '');
