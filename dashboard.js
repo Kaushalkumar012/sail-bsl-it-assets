@@ -28,10 +28,16 @@ function setupUser() {
   document.getElementById('wc-title').textContent = `Welcome, ${user.name?.split(' ')[0] || 'User'}!`;
   document.getElementById('wc-sub').textContent = `Role: ${roleLabel(user.role)} | ${new Date().toDateString()}`;
 
-  // Role-based nav
   if (user.role === 'staff') {
     document.getElementById('nav-employees').style.display = 'none';
     document.getElementById('nav-departments').style.display = 'none';
+  }
+  if (user.role === 'dept_head') {
+    // hide dept filters — they can only see their own dept
+    ['asset-dept-filter','emp-dept-filter','issue-dept-filter'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
   }
 }
 
@@ -85,17 +91,25 @@ function populateDeptFilters() {
   });
 }
 
+// ===== SCOPE HELPER =====
+function scopedData() {
+  if (user.role === 'dept_head') return EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
+  if (user.role === 'staff') return EMPLOYEES.filter(e => cleanNum(e['Staff No.']) === user.staffNo);
+  return EMPLOYEES;
+}
+
 // ===== KPIs =====
 function renderKPIs() {
-  const total = EMPLOYEES.length;
-  const withPrinter = EMPLOYEES.filter(e => e['Printer Make']).length;
-  const withScanner = EMPLOYEES.filter(e => e['Scanner  Make']).length;
-  const withUPS = EMPLOYEES.filter(e => e['UPS MAKE']).length;
-  const depts = new Set(EMPLOYEES.map(e => e['Deptt.']).filter(Boolean)).size;
-  const onDomain = EMPLOYEES.filter(e => e['DOMAIN'] === 'YES').length;
+  const src = scopedData();
+  const total = src.length;
+  const withPrinter = src.filter(e => e['Printer Make']).length;
+  const withScanner = src.filter(e => e['Scanner  Make']).length;
+  const withUPS = src.filter(e => e['UPS MAKE']).length;
+  const depts = new Set(src.map(e => e['Deptt.']).filter(Boolean)).size;
+  const onDomain = src.filter(e => e['DOMAIN'] === 'YES').length;
 
   const kpis = [
-    { icon: 'fa-desktop', color: 'blue', num: total, label: 'Total Assets' },
+    { icon: 'fa-desktop', color: 'blue', num: total, label: user.role === 'dept_head' ? 'Dept Assets' : 'Total Assets' },
     { icon: 'fa-building', color: 'purple', num: depts, label: 'Departments' },
     { icon: 'fa-print', color: 'amber', num: withPrinter, label: 'With Printer' },
     { icon: 'fa-barcode', color: 'cyan', num: withScanner, label: 'With Scanner' },
@@ -112,35 +126,37 @@ function renderKPIs() {
 
 // ===== CHARTS =====
 function renderCharts() {
+  const src = scopedData();
+
   // Dept chart
   const deptCount = {};
-  EMPLOYEES.forEach(e => { if (e['Deptt.']) deptCount[e['Deptt.']] = (deptCount[e['Deptt.']] || 0) + 1; });
+  src.forEach(e => { if (e['Deptt.']) deptCount[e['Deptt.']] = (deptCount[e['Deptt.']] || 0) + 1; });
   const top15 = Object.entries(deptCount).sort((a,b) => b[1]-a[1]).slice(0,15);
   makeChartWithLabels('deptChart', 'bar', top15.map(d=>d[0]), top15.map(d=>d[1]), 'rgba(26,86,219,0.8)');
 
   // PC Make
   const pcCount = {};
-  EMPLOYEES.forEach(e => { if (e['PC Make']) pcCount[e['PC Make']] = (pcCount[e['PC Make']] || 0) + 1; });
+  src.forEach(e => { if (e['PC Make']) pcCount[e['PC Make']] = (pcCount[e['PC Make']] || 0) + 1; });
   const pcEntries = Object.entries(pcCount).sort((a,b)=>b[1]-a[1]);
   makeChart('pcMakeChart', 'doughnut', pcEntries.map(d => `${d[0]} (${d[1]})`), pcEntries.map(d=>d[1]),
     ['#1a56db','#10b981','#f59e0b','#ef4444','#7c3aed','#06b6d4']);
 
   // RAM
   const ramCount = {};
-  EMPLOYEES.forEach(e => { if (e['RAM']) { const r = e['RAM']+'GB'; ramCount[r] = (ramCount[r]||0)+1; }});
+  src.forEach(e => { if (e['RAM']) { const r = e['RAM']+'GB'; ramCount[r] = (ramCount[r]||0)+1; }});
   const ramE = Object.entries(ramCount).sort((a,b)=>parseFloat(a[0])-parseFloat(b[0]));
   makeChartWithLabels('ramChart', 'bar', ramE.map(d=>d[0]), ramE.map(d=>d[1]), 'rgba(16,185,129,0.8)');
 
   // OS
   const osCount = {};
-  EMPLOYEES.forEach(e => { if (e['OS']) { const o = 'Win '+e['OS']; osCount[o]=(osCount[o]||0)+1; }});
+  src.forEach(e => { if (e['OS']) { const o = 'Win '+e['OS']; osCount[o]=(osCount[o]||0)+1; }});
   const osE = Object.entries(osCount);
   makeChart('osChart', 'pie', osE.map(d=>d[0]), osE.map(d=>d[1]),
     ['#1a56db','#10b981','#f59e0b','#ef4444','#7c3aed']);
 
   // Printer
   const prCount = {};
-  EMPLOYEES.forEach(e => { if (e['Printer Make']) prCount[e['Printer Make']]=(prCount[e['Printer Make']]||0)+1; });
+  src.forEach(e => { if (e['Printer Make']) prCount[e['Printer Make']]=(prCount[e['Printer Make']]||0)+1; });
   const prE = Object.entries(prCount).sort((a,b)=>b[1]-a[1]);
   makeChart('printerChart', 'doughnut', prE.map(d=>d[0]), prE.map(d=>d[1]),
     ['#f59e0b','#1a56db','#10b981','#ef4444','#7c3aed','#06b6d4']);
@@ -222,12 +238,11 @@ function filterAssets(val) {
   const dept = document.getElementById('asset-dept-filter').value;
   const pc = document.getElementById('asset-pc-filter').value;
 
-  let src = EMPLOYEES;
-  if (user.role === 'dept_head') src = EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
+  let src = user.role === 'dept_head' ? EMPLOYEES.filter(e => e['Deptt.'] === user.dept) : EMPLOYEES;
 
   filteredAssets = src.filter(e => {
     const matchSearch = !search || Object.values(e).some(v => String(v).toLowerCase().includes(search));
-    const matchDept = !dept || e['Deptt.'] === dept;
+    const matchDept = user.role === 'dept_head' || !dept || e['Deptt.'] === dept;
     const matchPc = !pc || e['PC Make'] === pc;
     return matchSearch && matchDept && matchPc;
   });
@@ -269,12 +284,11 @@ function filterEmployees(val) {
   const search = (val ?? document.getElementById('emp-search').value).toLowerCase();
   const dept = document.getElementById('emp-dept-filter').value;
 
-  let src = EMPLOYEES;
-  if (user.role === 'dept_head') src = EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
+  let src = user.role === 'dept_head' ? EMPLOYEES.filter(e => e['Deptt.'] === user.dept) : EMPLOYEES;
 
   filteredEmps = src.filter(e => {
     const matchSearch = !search || [e['Name'],e['Staff No.'],e['P. No.'],e['Deptt.'],e['Section']].some(v => String(v||'').toLowerCase().includes(search));
-    const matchDept = !dept || e['Deptt.'] === dept;
+    const matchDept = user.role === 'dept_head' || !dept || e['Deptt.'] === dept;
     return matchSearch && matchDept;
   });
   empPage = 1;
@@ -302,8 +316,9 @@ function renderEmployeesTable() {
 
 // ===== DEPT GRID =====
 function renderDeptGrid() {
+  const src = user.role === 'dept_head' ? EMPLOYEES.filter(e => e['Deptt.'] === user.dept) : EMPLOYEES;
   const deptMap = {};
-  EMPLOYEES.forEach(e => {
+  src.forEach(e => {
     const d = e['Deptt.']; if (!d) return;
     if (!deptMap[d]) deptMap[d] = { count: 0, acer: 0, hp: 0, hlbs: 0, acerAio: 0, other: 0, printers: 0, scanners: 0, ups: 0, crossDept: 0 };
     deptMap[d].count++;
@@ -369,43 +384,70 @@ function filterByDept(dept) {
 
 // ===== REPORTS =====
 function renderReports() {
+  const src = scopedData();
+  const total = src.length;
+
+  const reportRow = (k, v, max, color) => {
+    const pct = max ? Math.round((v / max) * 100) : 0;
+    return `
+    <div class="rrow">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span class="rrow-label">${k}</span>
+        <span class="rrow-val">${v} <span style="color:var(--muted);font-size:11px;font-weight:400">${max ? '('+pct+'%)' : ''}</span></span>
+      </div>
+      ${max ? `<div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color||'var(--blue)'};border-radius:3px;transition:width 0.8s ease"></div>
+      </div>` : ''}
+    </div>`;
+  };
+
   // PC Summary
   const pcCount = {};
-  EMPLOYEES.forEach(e => { if (e['PC Make']) pcCount[e['PC Make']] = (pcCount[e['PC Make']]||0)+1; });
-  const reportRow = (k,v) => `<div class="rrow"><span class="rrow-label">${k}</span><span class="rrow-val">${v}</span></div>`;
-
-  document.getElementById('pc-summary').innerHTML = Object.entries(pcCount).sort((a,b)=>b[1]-a[1]).map(([k,v])=>reportRow(k,v)).join('');
+  src.forEach(e => { if (e['PC Make']) pcCount[e['PC Make']] = (pcCount[e['PC Make']]||0)+1; });
+  const pcMax = Math.max(...Object.values(pcCount), 1);
+  document.getElementById('pc-summary').innerHTML = Object.entries(pcCount).sort((a,b)=>b[1]-a[1])
+    .map(([k,v]) => reportRow(k, v, pcMax, '#2563eb')).join('');
 
   // Printer Summary
   const prCount = {};
-  EMPLOYEES.forEach(e => { if (e['Printer Make']) prCount[e['Printer Make']] = (prCount[e['Printer Make']]||0)+1; });
-  document.getElementById('printer-summary').innerHTML = Object.entries(prCount).sort((a,b)=>b[1]-a[1]).map(([k,v])=>reportRow(k,v)).join('');
+  src.forEach(e => { if (e['Printer Make']) prCount[e['Printer Make']] = (prCount[e['Printer Make']]||0)+1; });
+  const prMax = Math.max(...Object.values(prCount), 1);
+  document.getElementById('printer-summary').innerHTML = Object.entries(prCount).sort((a,b)=>b[1]-a[1])
+    .map(([k,v]) => reportRow(k, v, prMax, '#f59e0b')).join('');
 
   // UPS Summary
   const upsCount = {};
-  EMPLOYEES.forEach(e => { if (e['UPS MAKE']) upsCount[e['UPS MAKE']] = (upsCount[e['UPS MAKE']]||0)+1; });
-  document.getElementById('ups-summary').innerHTML = Object.entries(upsCount).sort((a,b)=>b[1]-a[1]).map(([k,v])=>reportRow(k,v)).join('');
+  src.forEach(e => { if (e['UPS MAKE']) upsCount[e['UPS MAKE']] = (upsCount[e['UPS MAKE']]||0)+1; });
+  const upsMax = Math.max(...Object.values(upsCount), 1);
+  document.getElementById('ups-summary').innerHTML = Object.entries(upsCount).sort((a,b)=>b[1]-a[1])
+    .map(([k,v]) => reportRow(k, v, upsMax, '#10b981')).join('');
 
   // Domain
-  const yes = EMPLOYEES.filter(e=>e['DOMAIN']==='YES').length;
-  const no = EMPLOYEES.filter(e=>e['DOMAIN']==='NO').length;
-  const na = EMPLOYEES.length - yes - no;
-  document.getElementById('domain-summary').innerHTML = [['On Domain',yes],['Not on Domain',no],['Unknown',na]].map(([k,v])=>reportRow(k,v)).join('');
+  const yes = src.filter(e=>e['DOMAIN']==='YES').length;
+  const no  = src.filter(e=>e['DOMAIN']==='NO').length;
+  const na  = total - yes - no;
+  document.getElementById('domain-summary').innerHTML = [
+    ['On Domain', yes, '#10b981'], ['Not on Domain', no, '#ef4444'], ['Unknown', na, '#94a3b8']
+  ].map(([k,v,c]) => reportRow(k, v, total, c)).join('');
 
   // Scanner Summary
   const scCount = {};
-  EMPLOYEES.forEach(e => { if (e['Scanner  Make']) scCount[e['Scanner  Make']] = (scCount[e['Scanner  Make']]||0)+1; });
-  document.getElementById('scanner-summary').innerHTML = Object.entries(scCount).sort((a,b)=>b[1]-a[1]).map(([k,v])=>reportRow(k,v)).join('') || reportRow('No scanners','0');
+  src.forEach(e => { if (e['Scanner  Make']) scCount[e['Scanner  Make']] = (scCount[e['Scanner  Make']]||0)+1; });
+  const scMax = Math.max(...Object.values(scCount), 1);
+  document.getElementById('scanner-summary').innerHTML = Object.entries(scCount).sort((a,b)=>b[1]-a[1])
+    .map(([k,v]) => reportRow(k, v, scMax, '#06b6d4')).join('') || reportRow('No scanners', 0, 0, '');
 
   // TRINETRA Summary
-  const tYes = EMPLOYEES.filter(e=>e['TRINETRA']==='YES').length;
-  const tNo = EMPLOYEES.filter(e=>e['TRINETRA']==='NO').length;
-  const tNa = EMPLOYEES.length - tYes - tNo;
-  document.getElementById('trinetra-summary').innerHTML = [['Active',tYes],['Inactive',tNo],['Unknown',tNa]].map(([k,v])=>reportRow(k,v)).join('');
+  const tYes = src.filter(e=>e['TRINETRA']==='YES').length;
+  const tNo  = src.filter(e=>e['TRINETRA']==='NO').length;
+  const tNa  = total - tYes - tNo;
+  document.getElementById('trinetra-summary').innerHTML = [
+    ['Active', tYes, '#10b981'], ['Inactive', tNo, '#ef4444'], ['Unknown', tNa, '#94a3b8']
+  ].map(([k,v,c]) => reportRow(k, v, total, c)).join('');
 
-  // Full dept chart
+  // Full dept chart — scoped
   const deptCount = {};
-  EMPLOYEES.forEach(e => { if (e['Deptt.']) deptCount[e['Deptt.']] = (deptCount[e['Deptt.']]||0)+1; });
+  src.forEach(e => { if (e['Deptt.']) deptCount[e['Deptt.']] = (deptCount[e['Deptt.']]||0)+1; });
   const all = Object.entries(deptCount).sort((a,b)=>b[1]-a[1]);
   makeChartWithLabels('fullDeptChart', 'bar', all.map(d=>d[0]), all.map(d=>d[1]), 'rgba(26,86,219,0.8)');
 }
@@ -594,14 +636,14 @@ function renderPagination(id, total, current, cb) {
 
 // ===== ISSUES =====
 const ISSUE_CHECKS = [
-  { key: 'no_serial',   label: 'Missing Serial No.',  severity: 'high',   check: e => !e['PC Sl. No.'] },
-  { key: 'no_os',       label: 'Missing OS',           severity: 'high',   check: e => !e['OS'] },
-  { key: 'no_ram',      label: 'Missing RAM',          severity: 'medium', check: e => !e['RAM'] },
-  { key: 'no_hostname', label: 'Missing Hostname',     severity: 'medium', check: e => !e['HOST NAME'] },
-  { key: 'no_mac',      label: 'Missing MAC Address',  severity: 'medium', check: e => !e['MAC ADDRESS'] },
-  { key: 'not_domain',  label: 'Not on Domain',        severity: 'high',   check: e => e['DOMAIN'] && e['DOMAIN'] !== 'YES' },
-  { key: 'not_trinetra',label: 'TRINETRA Inactive',    severity: 'low',    check: e => e['TRINETRA'] && e['TRINETRA'] !== 'YES' },
-  { key: 'no_monitor',  label: 'No Monitor',           severity: 'low',    check: e => !e['Monitor Make'] },
+  { key: 'no_serial',    label: 'Missing Serial No.',  icon: 'fa-barcode',         severity: 'high',   check: e => !e['PC Sl. No.'] },
+  { key: 'no_os',        label: 'Missing OS',           icon: 'fa-windows',         severity: 'high',   check: e => !e['OS'] },
+  { key: 'no_ram',       label: 'Missing RAM',          icon: 'fa-memory',          severity: 'medium', check: e => !e['RAM'] },
+  { key: 'no_hostname',  label: 'Missing Hostname',     icon: 'fa-server',          severity: 'medium', check: e => !e['HOST NAME'] },
+  { key: 'no_mac',       label: 'Missing MAC Address',  icon: 'fa-network-wired',   severity: 'medium', check: e => !e['MAC ADDRESS'] },
+  { key: 'not_domain',   label: 'Not on Domain',        icon: 'fa-shield-halved',   severity: 'high',   check: e => e['DOMAIN'] && e['DOMAIN'] !== 'YES' },
+  { key: 'not_trinetra', label: 'TRINETRA Inactive',    icon: 'fa-circle-xmark',    severity: 'low',    check: e => e['TRINETRA'] && e['TRINETRA'] !== 'YES' },
+  { key: 'no_monitor',   label: 'No Monitor',           icon: 'fa-display',         severity: 'low',    check: e => !e['Monitor Make'] },
 ];
 
 const SEV_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#94a3b8' };
@@ -681,11 +723,16 @@ function renderIssues() {
   const counts = {};
   ISSUE_CHECKS.forEach(c => counts[c.key] = 0);
   filteredIssues.forEach(r => r.issues.forEach(i => counts[i.key]++));
+  const totalIssues = filteredIssues.reduce((a,r) => a + r.issues.length, 0);
   document.getElementById('issue-summary-grid').style.display = '';
   document.getElementById('issue-summary-grid').innerHTML = ISSUE_CHECKS.map(c => `
-    <div style="background:${SEV_BG[c.severity]};border:1px solid ${SEV_COLOR[c.severity]}33;border-radius:14px;padding:14px 16px;cursor:pointer" onclick="document.getElementById('issue-type-filter').value='${c.key}';filterIssues()">
-      <div style="font-size:22px;font-weight:900;color:${SEV_COLOR[c.severity]}">${counts[c.key]}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">${c.label}</div>
+    <div class="issue-card sev-${c.severity}" onclick="document.getElementById('issue-type-filter').value='${c.key}';filterIssues()">
+      <div class="ic-top">
+        <div class="ic-icon sev-${c.severity}"><i class="fas ${c.icon}"></i></div>
+        <div class="ic-count" style="color:${SEV_COLOR[c.severity]}">${counts[c.key]}</div>
+      </div>
+      <div class="ic-label">${c.label}</div>
+      <div class="ic-bar"><div class="ic-fill" style="width:${totalIssues?Math.round(counts[c.key]/filteredIssues.length*100):0}%;background:${SEV_COLOR[c.severity]}"></div></div>
     </div>`).join('');
 
   document.getElementById('issue-count').textContent = `${filteredIssues.length} affected records`;
