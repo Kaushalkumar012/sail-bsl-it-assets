@@ -7,7 +7,6 @@
 **Centralized IT Infrastructure Tracking System**
 *Bokaro Steel Plant — Steel Authority of India Limited*
 
-[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Visit_Dashboard-2563eb?style=for-the-badge)](https://kaushalkumar012.github.io/sail-bsl-it-assets)
 [![GitHub Stars](https://img.shields.io/github/stars/Kaushalkumar012/sail-bsl-it-assets?style=for-the-badge&color=f59e0b)](https://github.com/Kaushalkumar012/sail-bsl-it-assets/stargazers)
 [![Made With](https://img.shields.io/badge/Made_With-Vanilla_JS-f7df1e?style=for-the-badge&logo=javascript)](https://github.com/Kaushalkumar012/sail-bsl-it-assets)
 [![No Backend](https://img.shields.io/badge/Backend-None_Required-10b981?style=for-the-badge)](https://github.com/Kaushalkumar012/sail-bsl-it-assets)
@@ -138,28 +137,6 @@ sail-bsl-it-assets/
 - Staff → sees their own PC, monitor, printer, scanner, UPS, network info
 - Dept Head → sees department summary stats
 - HR → full access to everything
-
----
-
-## ⚙️ Setup & Deploy
-
-### Run Locally
-```bash
-# Just open in browser — no install needed!
-open index.html
-```
-
-### Deploy to GitHub Pages
-```bash
-git clone https://github.com/Kaushalkumar012/sail-bsl-it-assets.git
-cd sail-bsl-it-assets
-# Push your files, then enable GitHub Pages in repo Settings
-```
-
-### Deploy to Netlify
-1. Go to [netlify.com](https://netlify.com)
-2. Drag & drop the project folder
-3. ✅ Live in 30 seconds
 
 ---
 
