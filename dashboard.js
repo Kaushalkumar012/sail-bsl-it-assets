@@ -29,7 +29,7 @@ function setupUser() {
   document.getElementById('wc-sub').textContent = `Role: ${roleLabel(user.role)} | ${new Date().toDateString()}`;
 
   if (user.role === 'staff') {
-    ['nav-employees','nav-departments','nav-assets','nav-overview','nav-reports'].forEach(id => {
+    ['nav-employees','nav-departments','nav-assets','nav-reports'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
@@ -49,14 +49,14 @@ function roleLabel(r) {
 
 function setupNav() {
   if (user.role === 'staff') {
-    showPage('myasset', document.querySelector('[data-page="myasset"]'));
+    showPage('overview', document.querySelector('[data-page="overview"]'));
   }
 }
 
 // ===== NAVIGATION =====
 function showPage(name, el) {
   // Block staff from accessing restricted pages
-  if (user.role === 'staff' && ['overview','assets','employees','departments','reports'].includes(name)) {
+  if (user.role === 'staff' && ['assets','employees','departments','reports'].includes(name)) {
     name = 'myasset';
     el = document.querySelector('[data-page="myasset"]');
   }
