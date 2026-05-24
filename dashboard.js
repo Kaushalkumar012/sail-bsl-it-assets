@@ -66,7 +66,10 @@ function showPage(name, el) {
   if (el) el.classList.add('active');
   document.getElementById('page-title').textContent = el?.querySelector('span')?.textContent || name;
 
-  if (name === 'overview') renderCharts();
+  if (name === 'overview') {
+    if (user.role === 'staff') renderStaffOverview();
+    else renderCharts();
+  }
   if (name === 'assets') renderAssetsTable();
   if (name === 'employees') renderEmployeesTable();
   if (name === 'departments') renderDeptGrid();
@@ -98,7 +101,81 @@ function populateDeptFilters() {
   });
 }
 
-// ===== SCOPE HELPER =====
+// ===== STAFF OVERVIEW =====
+function renderStaffOverview() {
+  const emp = EMPLOYEES.find(e => cleanNum(e['Staff No.']) === user.staffNo);
+
+  // KPIs — personal asset status
+  const kpis = [
+    { icon: 'fa-desktop',       color: 'blue',   num: emp?.['PC Make']       || '—', label: 'PC Make' },
+    { icon: 'fa-microchip',     color: 'green',  num: emp?.['RAM'] ? emp['RAM']+'GB' : '—', label: 'RAM' },
+    { icon: 'fa-windows',       color: 'purple', num: emp?.['OS']  ? 'Win '+emp['OS'] : '—', label: 'OS' },
+    { icon: 'fa-print',         color: 'amber',  num: emp?.['Printer Make']  || '—', label: 'Printer' },
+    { icon: 'fa-bolt',          color: 'cyan',   num: emp?.['UPS MAKE']      || '—', label: 'UPS' },
+    { icon: 'fa-network-wired', color: emp?.['DOMAIN']==='YES'?'green':'red',
+                                                  num: emp?.['DOMAIN']        || '—', label: 'Domain' },
+  ];
+  document.getElementById('kpi-grid').innerHTML = kpis.map(k => `
+    <div class="kpi-card">
+      <div class="kpi-icon ${k.color}"><i class="fas ${k.icon}"></i></div>
+      <div><div class="kpi-num" style="font-size:18px;word-break:break-all">${k.num}</div><div class="kpi-label">${k.label}</div></div>
+    </div>`).join('');
+
+  if (!emp) return;
+
+  // Replace charts area with full asset detail table
+  const chartsArea = document.querySelector('#page-overview .charts-row');
+  const chartsRow2 = document.querySelector('#page-overview .charts-row.three');
+  if (chartsRow2) chartsRow2.style.display = 'none';
+
+  const fields = [
+    ['Tag No.',        emp['TAGGING NO.']],
+    ['Staff No.',      cleanNum(emp['Staff No.'])],
+    ['P. No.',         emp['P. No.']],
+    ['Department',     emp['Deptt.']],
+    ['Section',        emp['Section']],
+    ['Location',       emp['Location']],
+    ['LOT ID',         emp['LOT ID']],
+    ['PC Make',        emp['PC Make']],
+    ['PC Model',       emp['PC Model']],
+    ['PC Serial No.',  emp['PC Sl. No.']],
+    ['Monitor Make',   emp['Monitor Make']],
+    ['Monitor Model',  emp['Monitor Model']],
+    ['Monitor Serial', emp['Monitor Sl. No.']],
+    ['MFD Make',       emp['MFD MAKE']],
+    ['MFD Model',      emp['MFD MODEL']],
+    ['MFD Serial',     emp['MFD SL. NO.']],
+    ['Printer Make',   emp['Printer Make']],
+    ['Printer Model',  emp['Printer Model']],
+    ['Printer Serial', emp['Printer Sl. No.']],
+    ['Scanner Make',   emp['Scanner  Make']],
+    ['Scanner Model',  emp['Scanner Model']],
+    ['Scanner Serial', emp['Scanner Sl.No.']],
+    ['UPS Make',       emp['UPS MAKE']],
+    ['UPS Model',      emp['UPS MODEL']],
+    ['Hostname',       emp['HOST NAME']],
+    ['MAC Address',    emp['MAC ADDRESS']],
+    ['OS',             emp['OS'] ? 'Windows ' + emp['OS'] : ''],
+    ['RAM',            emp['RAM'] ? emp['RAM'] + ' GB' : ''],
+    ['Domain',         emp['DOMAIN']],
+    ['TRINETRA',       emp['TRINETRA']],
+    ['Oracle Status',  emp['ORCL_ROLL_STAT'] === 'Y' ? 'Active' : 'Inactive'],
+  ].filter(([,v]) => v);
+
+  if (chartsArea) chartsArea.innerHTML = `
+    <div class="chart-card span2" style="grid-column:1/-1">
+      <div class="chart-hdr"><h3><i class="fas fa-table-list"></i> Your Complete Asset Details</h3></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0">
+        ${fields.map(([k,v], i) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);${i%2===0?'background:rgba(255,255,255,0.02)':''}">
+            <span style="font-size:12px;color:var(--muted);font-weight:500">${k}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--text);text-align:right;max-width:55%;word-break:break-all">${v}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+
 function scopedData() {
   if (user.role === 'dept_head') return EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
   if (user.role === 'staff') return EMPLOYEES.filter(e => cleanNum(e['Staff No.']) === user.staffNo);
