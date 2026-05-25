@@ -1,0 +1,16 @@
+# Sensitive files - never commit these
+serviceAccountKey.json
+credentials.txt
+.env
+.env.local
+
+# Admin scripts (optional - remove if you want to include)
+../admin-script/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Migration/setup files (delete after use)
+migrate.html
+create-users.html

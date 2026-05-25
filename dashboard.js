@@ -1,4 +1,7 @@
 // ===== INIT =====
+import { onAuth, logoutUser, db } from './firebase.js';
+import { collection, getDocs, updateDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
 const user = JSON.parse(sessionStorage.getItem('sail_user') || 'null');
 if (!user) window.location.href = 'index.html';
 
@@ -6,9 +9,11 @@ const PAGE_SIZE = 20;
 let assetPage = 1, empPage = 1;
 let filteredAssets = [], filteredEmps = [];
 let charts = {};
+let EMPLOYEES = [];
 
 // ===== SETUP =====
-window.onload = () => {
+window.onload = async () => {
+  await loadEmployees();
   setupUser();
   setupNav();
   populateDeptFilters();
@@ -16,6 +21,11 @@ window.onload = () => {
   renderCharts();
   showPage('overview', document.querySelector('.nav-item.active'));
 };
+
+async function loadEmployees() {
+  const snap = await getDocs(collection(db, 'employees'));
+  EMPLOYEES = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+}
 
 function setupUser() {
   const initials = user.name ? user.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() : 'U';
@@ -34,8 +44,7 @@ function setupUser() {
       if (el) el.style.display = 'none';
     });
   }
-  if (user.role === 'dept_head') {
-    // hide dept filters — they can only see their own dept
+  if (user.role === 'hr') {
     ['asset-dept-filter','emp-dept-filter','issue-dept-filter'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
@@ -44,7 +53,7 @@ function setupUser() {
 }
 
 function roleLabel(r) {
-  return r === 'hr' ? 'HR / Admin' : r === 'dept_head' ? 'Dept. Head' : 'Staff';
+  return r === 'admin' ? 'IT Admin' : r === 'hr' ? 'Dept. Admin' : 'Staff';
 }
 
 function setupNav() {
@@ -82,7 +91,8 @@ function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
 }
 
-function logout() {
+async function logout() {
+  await logoutUser();
   sessionStorage.clear();
   window.location.href = 'index.html';
 }
@@ -131,7 +141,6 @@ function renderStaffOverview() {
   const fields = [
     ['Tag No.',        emp['TAGGING NO.']],
     ['Staff No.',      cleanNum(emp['Staff No.'])],
-    ['P. No.',         emp['P. No.']],
     ['Department',     emp['Deptt.']],
     ['Section',        emp['Section']],
     ['Location',       emp['Location']],
@@ -148,7 +157,7 @@ function renderStaffOverview() {
     ['Printer Make',   emp['Printer Make']],
     ['Printer Model',  emp['Printer Model']],
     ['Printer Serial', emp['Printer Sl. No.']],
-    ['Scanner Make',   emp['Scanner  Make']],
+    ['Scanner Make',   emp['Scanner Make']],
     ['Scanner Model',  emp['Scanner Model']],
     ['Scanner Serial', emp['Scanner Sl.No.']],
     ['UPS Make',       emp['UPS MAKE']],
@@ -177,9 +186,9 @@ function renderStaffOverview() {
 
 
 function scopedData() {
-  if (user.role === 'dept_head') return EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
-  if (user.role === 'staff') return EMPLOYEES.filter(e => cleanNum(e['Staff No.']) === user.staffNo);
-  return EMPLOYEES;
+  if (user.role === 'admin') return EMPLOYEES;
+  if (user.role === 'hr')    return EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
+  return EMPLOYEES.filter(e => cleanNum(e['Staff No.']) === user.staffNo);
 }
 
 // ===== KPIs =====
@@ -187,7 +196,7 @@ function renderKPIs() {
   const src = scopedData();
   const total = src.length;
   const withPrinter = src.filter(e => e['Printer Make']).length;
-  const withScanner = src.filter(e => e['Scanner  Make']).length;
+  const withScanner = src.filter(e => e['Scanner Make']).length;
   const withUPS = src.filter(e => e['UPS MAKE']).length;
   const depts = new Set(src.map(e => e['Deptt.']).filter(Boolean)).size;
   const onDomain = src.filter(e => e['DOMAIN'] === 'YES').length;
@@ -323,12 +332,12 @@ function filterAssets(val) {
   const pc = document.getElementById('asset-pc-filter').value;
 
   let src = EMPLOYEES;
-  if (user.role === 'dept_head') src = EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
+  if (user.role === 'hr')    src = EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
   if (user.role === 'staff') src = EMPLOYEES.filter(e => cleanNum(e['Staff No.']) === user.staffNo);
 
   filteredAssets = src.filter(e => {
     const matchSearch = !search || Object.values(e).some(v => String(v).toLowerCase().includes(search));
-    const matchDept = (user.role === 'dept_head' || user.role === 'staff') || !dept || e['Deptt.'] === dept;
+    const matchDept = (user.role === 'hr' || user.role === 'staff') || !dept || e['Deptt.'] === dept;
     const matchPc = !pc || e['PC Make'] === pc;
     return matchSearch && matchDept && matchPc;
   });
@@ -370,10 +379,9 @@ function filterEmployees(val) {
   const search = (val ?? document.getElementById('emp-search').value).toLowerCase();
   const dept = document.getElementById('emp-dept-filter').value;
 
-  let src = user.role === 'dept_head' ? EMPLOYEES.filter(e => e['Deptt.'] === user.dept) : EMPLOYEES;
-
+  let src = user.role === 'hr' ? EMPLOYEES.filter(e => e['Deptt.'] === user.dept) : EMPLOYEES;
   filteredEmps = src.filter(e => {
-    const matchSearch = !search || [e['Name'],e['Staff No.'],e['P. No.'],e['Deptt.'],e['Section']].some(v => String(v||'').toLowerCase().includes(search));
+    const matchSearch = !search || [e['Name'],e['Staff No.'],e['Deptt.'],e['Section']].some(v => String(v||'').toLowerCase().includes(search));
     const matchDept = user.role === 'dept_head' || !dept || e['Deptt.'] === dept;
     return matchSearch && matchDept;
   });
@@ -390,7 +398,6 @@ function renderEmployeesTable() {
     <tr>
       <td>${e['TAGGING NO.'] || '-'}</td>
       <td>${cleanNum(e['Staff No.'])}</td>
-      <td>${e['P. No.'] || '-'}</td>
       <td>${e['Name'] || '-'}</td>
       <td><span class="badge badge-dept">${e['Deptt.'] || '-'}</span></td>
       <td class="muted">${e['Section'] || '-'}</td>
@@ -402,7 +409,7 @@ function renderEmployeesTable() {
 
 // ===== DEPT GRID =====
 function renderDeptGrid() {
-  const src = user.role === 'dept_head' ? EMPLOYEES.filter(e => e['Deptt.'] === user.dept) : EMPLOYEES;
+  const src = user.role === 'hr' ? EMPLOYEES.filter(e => e['Deptt.'] === user.dept) : EMPLOYEES;
   const deptMap = {};
   src.forEach(e => {
     const d = e['Deptt.']; if (!d) return;
@@ -415,7 +422,7 @@ function renderDeptGrid() {
     else if (pc === 'ACER AIO') deptMap[d].acerAio++;
     else if (pc) deptMap[d].other++;
     if (e['Printer Make']) deptMap[d].printers++;
-    if (e['Scanner  Make']) deptMap[d].scanners++;
+    if (e['Scanner Make']) deptMap[d].scanners++;
     if (e['UPS MAKE']) deptMap[d].ups++;
     // cross-dept: location dept name differs from assigned dept
     const loc = (e['Location'] || '').trim().toUpperCase();
@@ -518,7 +525,7 @@ function renderReports() {
 
   // Scanner Summary
   const scCount = {};
-  src.forEach(e => { if (e['Scanner  Make']) scCount[e['Scanner  Make']] = (scCount[e['Scanner  Make']]||0)+1; });
+  src.forEach(e => { if (e['Scanner Make']) scCount[e['Scanner Make']] = (scCount[e['Scanner Make']]||0)+1; });
   const scMax = Math.max(...Object.values(scCount), 1);
   document.getElementById('scanner-summary').innerHTML = Object.entries(scCount).sort((a,b)=>b[1]-a[1])
     .map(([k,v]) => reportRow(k, v, scMax, '#06b6d4')).join('') || reportRow('No scanners', 0, 0, '');
@@ -548,7 +555,7 @@ function renderMyAsset() {
     const deptEmps = EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
     const withPC = deptEmps.filter(e => e['PC Make']).length;
     const withPrinter = deptEmps.filter(e => e['Printer Make']).length;
-    const withScanner = deptEmps.filter(e => e['Scanner  Make']).length;
+    const withScanner = deptEmps.filter(e => e['Scanner Make']).length;
     const withUPS = deptEmps.filter(e => e['UPS MAKE']).length;
     const onDomain = deptEmps.filter(e => e['DOMAIN'] === 'YES').length;
     container.innerHTML = `
@@ -602,7 +609,7 @@ function renderMyAsset() {
           'Serial No.': emp['Printer Sl. No.'], 'LOT ID': emp['PRINTER LOT ID']
         })}
         ${assetSection('fa-barcode','Scanner',{
-          'Make': emp['Scanner  Make'], 'Model': emp['Scanner Model'],
+          'Make': emp['Scanner Make'], 'Model': emp['Scanner Model'],
           'Serial No.': emp['Scanner Sl.No.'], 'LOT ID': emp['SCANNER LOT ID']
         })}
         ${assetSection('fa-bolt','UPS',{
@@ -632,11 +639,11 @@ function openModal(idx) {
   document.getElementById('modal-title').textContent = e['Name'] || 'Asset Details';
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-grid">
-      ${modalSection('fa-user','Employee',{'Name':e['Name'],'Staff No.':cleanNum(e['Staff No.']),'P. No.':e['P. No.'],'Department':e['Deptt.'],'Section':e['Section'],'Location':e['Location'],'Tagging No.':e['TAGGING NO.']})}
+      ${modalSection('fa-user','Employee',{'Name':e['Name'],'Staff No.':cleanNum(e['Staff No.']),'Department':e['Deptt.'],'Section':e['Section'],'Location':e['Location'],'Tagging No.':e['TAGGING NO.']})}
       ${modalSection('fa-desktop','Computer',{'PC Make':e['PC Make'],'PC Model':e['PC Model'],'Serial No.':e['PC Sl. No.'],'LOT ID':e['LOT ID'],'OS':e['OS']?'Win '+e['OS']:'','RAM':e['RAM']?e['RAM']+'GB':''})}
       ${modalSection('fa-display','Monitor',{'Make':e['Monitor Make'],'Model':e['Monitor Model'],'Serial No.':e['Monitor Sl. No.']})}
       ${modalSection('fa-print','Printer',{'Make':e['Printer Make'],'Model':e['Printer Model'],'Serial No.':e['Printer Sl. No.']})}
-      ${modalSection('fa-barcode','Scanner',{'Make':e['Scanner  Make'],'Model':e['Scanner Model'],'Serial No.':e['Scanner Sl.No.']})}
+      ${modalSection('fa-barcode','Scanner',{'Make':e['Scanner Make'],'Model':e['Scanner Model'],'Serial No.':e['Scanner Sl.No.']})}
       ${modalSection('fa-network-wired','Network',{'Hostname':e['HOST NAME'],'MAC':e['MAC ADDRESS'],'Domain':e['DOMAIN'],'TRINETRA':e['TRINETRA'],'UPS':(e['UPS MAKE']||'')+(e['UPS MODEL']?' '+e['UPS MODEL']:'')})}
     </div>`;
   document.getElementById('modal-foot').innerHTML = `<button class="btn-cancel" onclick="closeModal()">Close</button>`;
@@ -667,12 +674,18 @@ function openEdit(idx) {
   document.getElementById('modal-overlay').classList.add('open');
 }
 
-function saveEdit(idx) {
+async function saveEdit(idx) {
   const fields = ['PC Make','PC Model','PC Sl. No.','Monitor Make','Monitor Model','Printer Make','Printer Model','UPS MAKE','UPS MODEL','HOST NAME','MAC ADDRESS','OS','RAM','DOMAIN'];
+  const updates = {};
   fields.forEach(f => {
     const el = document.getElementById('edit_'+f.replace(/[^a-z0-9]/gi,'_'));
-    if (el && Object.prototype.hasOwnProperty.call(EMPLOYEES[idx], f)) EMPLOYEES[idx][f] = el.value.trim();
+    if (el) { EMPLOYEES[idx][f] = el.value.trim(); updates[f] = el.value.trim(); }
   });
+  try {
+    await updateDoc(doc(db, 'employees', EMPLOYEES[idx]._id), updates);
+  } catch(e) {
+    alert('Failed to save: ' + e.message);
+  }
   closeModal();
   renderAssetsTable();
 }
@@ -683,7 +696,7 @@ function closeModal() {
 
 // ===== GLOBAL SEARCH =====
 function globalSearch(val) {
-  if (user.role === 'staff') return; // staff cannot search all records
+  if (user.role === 'staff') return;
   showPage('assets', document.querySelector('[data-page="assets"]'));
   document.getElementById('asset-search').value = val;
   filterAssets(val || '');
@@ -745,7 +758,7 @@ function getIssuesFor(emp) {
 
 function buildAllIssues() {
   let src = EMPLOYEES;
-  if (user.role === 'dept_head') src = EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
+  if (user.role === 'hr')    src = EMPLOYEES.filter(e => e['Deptt.'] === user.dept);
   if (user.role === 'staff') src = EMPLOYEES.filter(e => cleanNum(e['Staff No.']) === user.staffNo);
   const type = document.getElementById('issue-type-filter')?.value || '';
   const dept = document.getElementById('issue-dept-filter')?.value || '';
@@ -759,70 +772,66 @@ function buildAllIssues() {
 function renderIssues() {
   filteredIssues = buildAllIssues();
 
-  const isStaff = user.role === 'staff';
-
-  if (isStaff) {
-    // Personal issue view for staff
-    const emp = EMPLOYEES.find(e => cleanNum(e['Staff No.']) === user.staffNo);
+  if (user.role === 'staff') {
+    const emp    = EMPLOYEES.find(e => cleanNum(e['Staff No.']) === user.staffNo);
     const issues = emp ? getIssuesFor(emp) : [];
+
     document.getElementById('issue-summary-grid').style.display = 'none';
-    document.getElementById('issue-dept-filter').style.display = 'none';
-    document.querySelector('[onclick="exportIssuesCSV()"]').style.display = 'none';
-    document.getElementById('issue-type-filter').style.display = 'none';
+    document.getElementById('issue-dept-filter').style.display  = 'none';
+    document.getElementById('issue-type-filter').style.display  = 'none';
+    const exportBtn = document.querySelector('[onclick="exportIssuesCSV()"]');
+    if (exportBtn) exportBtn.style.display = 'none';
 
     if (!emp) {
       document.getElementById('issue-count').textContent = 'No asset record found';
-      document.getElementById('issues-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">No asset record found for your account.</td></tr>`;
+      document.getElementById('issues-tbody').innerHTML  = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">No asset record found for your account.</td></tr>`;
       return;
     }
-
     if (issues.length === 0) {
       document.getElementById('issue-count').textContent = '✅ No issues found';
-      document.getElementById('issues-tbody').innerHTML = `
-        <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--muted)">
+      document.getElementById('issues-tbody').innerHTML  = `
+        <tr><td colspan="6" style="text-align:center;padding:48px">
           <i class="fas fa-circle-check" style="font-size:40px;color:#10b981;display:block;margin-bottom:12px"></i>
           <div style="font-size:15px;font-weight:600;color:#10b981;margin-bottom:6px">All Good!</div>
-          <div style="font-size:13px">No issues found on your asset record.</div>
+          <div style="font-size:13px;color:var(--muted)">No issues found on your asset record.</div>
         </td></tr>`;
       document.getElementById('issue-pagination').innerHTML = '';
       return;
     }
-
-    document.getElementById('issue-count').textContent = `⚠ ${issues.length} issue${issues.length > 1 ? 's' : ''} found on your asset`;
+    document.getElementById('issue-count').textContent = `⚠ ${issues.length} issue${issues.length>1?'s':''} on your asset`;
     document.getElementById('issues-tbody').innerHTML = issues.map(i => `
       <tr>
-        <td>${emp['TAGGING NO.'] || '-'}</td>
+        <td>${emp['TAGGING NO.']||'-'}</td>
         <td>${cleanNum(emp['Staff No.'])}</td>
-        <td>${emp['Name'] || '-'}</td>
-        <td><span class="badge badge-dept">${emp['Deptt.'] || '-'}</span></td>
-        <td>
-          <span style="display:inline-flex;align-items:center;gap:4px;background:${SEV_BG[i.severity]};color:${SEV_COLOR[i.severity]};border:1px solid ${SEV_COLOR[i.severity]}44;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:600;margin:2px">
-            <i class="fas fa-circle-exclamation" style="font-size:9px"></i>${i.label}
-          </span>
-        </td>
+        <td>${emp['Name']||'-'}</td>
+        <td><span class="badge badge-dept">${emp['Deptt.']||'-'}</span></td>
+        <td><span style="display:inline-flex;align-items:center;gap:6px;background:${SEV_BG[i.severity]};color:${SEV_COLOR[i.severity]};border:1px solid ${SEV_COLOR[i.severity]}44;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600">
+          <i class="fas fa-circle-exclamation" style="font-size:10px"></i>${i.label}
+        </span></td>
         <td><button class="btn-view" onclick="openModal(${EMPLOYEES.indexOf(emp)})">View</button></td>
       </tr>`).join('');
     document.getElementById('issue-pagination').innerHTML = '';
     return;
   }
 
-  // HR / Dept Head full view
+  // ── HR / Dept Head: full issue view ──
   const counts = {};
   ISSUE_CHECKS.forEach(c => counts[c.key] = 0);
   filteredIssues.forEach(r => r.issues.forEach(i => counts[i.key]++));
-  const totalIssues = filteredIssues.reduce((a,r) => a + r.issues.length, 0);
-  document.getElementById('issue-summary-grid').style.display = '';
+  const totalAffected = filteredIssues.length;
+
+  document.getElementById('issue-summary-grid').style.display = 'grid';
   document.getElementById('issue-summary-grid').innerHTML = ISSUE_CHECKS.map(c => `
-    <div class="issue-card sev-${c.severity}" onclick="document.getElementById('issue-type-filter').value='${c.key}';filterIssues()">
+    <div class="issue-card sev-${c.severity}" onclick="document.getElementById('issue-type-filter').value='${c.key}';filterIssues()" style="cursor:pointer">
       <div class="ic-top">
         <div class="ic-icon sev-${c.severity}"><i class="fas ${c.icon}"></i></div>
         <div class="ic-count" style="color:${SEV_COLOR[c.severity]}">${counts[c.key]}</div>
       </div>
       <div class="ic-label">${c.label}</div>
-      <div class="ic-bar"><div class="ic-fill" style="width:${totalIssues?Math.round(counts[c.key]/filteredIssues.length*100):0}%;background:${SEV_COLOR[c.severity]}"></div></div>
+      <div class="ic-bar"><div class="ic-fill" style="width:${totalAffected?Math.round(counts[c.key]/totalAffected*100):0}%;background:${SEV_COLOR[c.severity]}"></div></div>
     </div>`).join('');
 
-  document.getElementById('issue-count').textContent = `${filteredIssues.length} affected records`;
+  document.getElementById('issue-count').textContent = `${totalAffected} affected records`;
   renderIssuesTable();
 }
 
@@ -868,3 +877,19 @@ function exportIssuesCSV() {
 
 // ===== UTILS =====
 function cleanNum(n) { return String(n||'').replace(/\.0$/, '').trim(); }
+
+// ===== EXPOSE GLOBALS (needed for inline onclick handlers) =====
+window.showPage = showPage;
+window.toggleSidebar = toggleSidebar;
+window.logout = logout;
+window.filterAssets = filterAssets;
+window.filterEmployees = filterEmployees;
+window.filterByDept = filterByDept;
+window.filterIssues = filterIssues;
+window.openModal = openModal;
+window.openEdit = openEdit;
+window.saveEdit = saveEdit;
+window.closeModal = closeModal;
+window.globalSearch = globalSearch;
+window.exportCSV = exportCSV;
+window.exportIssuesCSV = exportIssuesCSV;
