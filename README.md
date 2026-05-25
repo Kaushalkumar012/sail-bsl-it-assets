@@ -1,74 +1,116 @@
 # SAIL BSL IT Asset Management System
 
-Centralized IT asset tracking and reporting system for Bokaro Steel Plant, Steel Authority of India Limited.
+<div align="center">
 
-## Overview
+Centralized IT infrastructure tracking for Bokaro Steel Plant.
 
-This project helps the IT team manage desktop systems, printers, scanners, UPS devices, and related infrastructure from a single dashboard. It includes role-based access, searchable asset records, department-wise reporting, issue detection, and Firebase-backed authentication and storage.
+<br />
 
-## Screenshots
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![Firebase](https://img.shields.io/badge/Backend-Firebase-ffb300?style=for-the-badge&logo=firebase&logoColor=black)
+![Chart.js](https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white)
+![Status](https://img.shields.io/badge/Use-Internal-0f766e?style=for-the-badge)
 
-| Login | Overview |
-| --- | --- |
-| ![Login screen](screenshots/login.png) | ![Overview dashboard](screenshots/overview.png) |
+<br />
+<br />
 
-| Asset Registry | Issues Tracker |
-| --- | --- |
-| ![Asset registry](screenshots/assets.png) | ![Issues tracker](screenshots/issues.png) |
+<img src="https://skillicons.dev/icons?i=html,css,js,firebase" alt="Tech stack icons" />
 
-## Core Features
+</div>
 
-- Role-based access for staff, department admins, and IT admins
-- Centralized asset registry for 2000+ records
-- Search, filtering, pagination, and CSV export
-- Dashboard KPIs and visual summaries for departments, devices, RAM, OS, and peripherals
-- Department-wise inventory views and reporting
-- Issues tracker for missing or inconsistent asset information
-- Personalized "My Asset" view for staff users
-- Firebase Authentication and Firestore integration
-- Responsive UI built for desktop and tablet workflows
+---
 
-## Modules
+## What This Project Does
 
-### Login Portal
+This dashboard gives the SAIL BSL IT team one place to manage PCs, printers, scanners, UPS devices, employee mappings, and data-quality issues. It is built for daily operational work: quick search, department filtering, reporting, issue review, and controlled access based on user role.
 
-- Secure sign-in flow with role selection
-- Staff number based authentication flow
-- Firebase-backed session handling
+## Why It Stands Out
 
-### Dashboard Overview
+- Built around real plant-level IT asset operations, not a generic template
+- Covers 2000+ asset records in a clean dashboard workflow
+- Includes role-based access for staff, department admins, and IT admins
+- Detects incomplete or inconsistent records through an issue tracker
+- Supports migration, reporting, and admin-side user creation
 
-- Top-level KPI cards
-- Department and asset distribution summaries
-- Quick operational snapshot for IT admins
+## Preview
+
+### Login Experience
+
+![Login screen](screenshots/login.png)
+
+### Overview Dashboard
+
+![Overview dashboard](screenshots/overview.png)
 
 ### Asset Registry
 
-- Search across asset fields
-- Department and device filters
-- Tabular view of tagged hardware and system details
-- CSV export for filtered records
+![Asset registry](screenshots/assets.png)
 
 ### Issues Tracker
 
-- Detects missing serial number, OS, RAM, MAC address, hostname, monitor, domain status, and TRINETRA status
-- Severity-based grouping for faster follow-up
-- Export support for issue lists
+![Issues tracker](screenshots/issues.png)
 
-### Reports and Department Views
+## Feature Highlights
 
-- Department-wise summaries
-- Peripheral and domain status snapshots
-- Operational reporting for IT review
+### Secure Access
 
-## Tech Stack
+- Firebase Authentication based login flow
+- Role-aware access for `Staff`, `Dept. Admin`, and `IT Admin`
+- Controlled dashboard visibility based on permissions
 
-- HTML5
-- CSS3
-- Vanilla JavaScript
-- Chart.js
-- Firebase Authentication
-- Cloud Firestore
+### Smart Asset Management
+
+- Centralized asset registry for tagged systems and peripherals
+- Search, filtering, pagination, and CSV export
+- Staff-wise and department-wise hardware mapping
+
+### Visual Reporting
+
+- KPI cards for operational overview
+- Department and device distribution insights
+- Quick summaries for RAM, OS, peripherals, and domain coverage
+
+### Issue Detection
+
+- Flags missing serial numbers, OS, RAM, hostname, MAC address, and monitor details
+- Highlights domain and TRINETRA gaps
+- Helps the IT team prioritize cleanup and follow-up
+
+## Main Modules
+
+| Module | Purpose |
+| --- | --- |
+| `index.html` | Login portal with role-based entry flow |
+| `dashboard.html` | Main app shell for the asset dashboard |
+| `dashboard.js` | Dashboard logic, rendering, filtering, reporting, and issue detection |
+| `dashboard.css` | Full UI styling and responsive layout |
+| `firebase.js` | Firebase initialization and helper methods |
+| `migrate.html` | Data migration utility for pushing records to Firestore |
+| `create-users.html` | User creation interface for admin workflows |
+| `data.js` | Asset dataset used by the dashboard |
+
+## Tools and Technologies
+
+<div align="center">
+
+| Frontend | Data and Auth | Visualization | Workflow |
+| --- | --- | --- | --- |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg" width="48" alt="HTML5" /><br><strong>HTML5</strong> | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/firebase/firebase-plain.svg" width="48" alt="Firebase" /><br><strong>Firebase Auth</strong> | <img src="https://www.chartjs.org/img/chartjs-logo.svg" width="48" alt="Chart.js" /><br><strong>Chart.js</strong> | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" width="48" alt="GitHub" /><br><strong>GitHub</strong> |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg" width="48" alt="CSS3" /><br><strong>CSS3</strong> | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/firebase/firebase-plain.svg" width="48" alt="Firestore" /><br><strong>Cloud Firestore</strong> | KPI cards, asset analytics, and summary dashboards | Repository, documentation, and deployment workflow |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg" width="48" alt="JavaScript" /><br><strong>Vanilla JavaScript</strong> | Real-time storage and secure sign-in | Department, RAM, OS, and issue insights | Internal-use project delivery |
+
+</div>
+
+### Stack Summary
+
+- `HTML5` powers the page structure and dashboard screens
+- `CSS3` drives the dark UI, responsive layout, and visual polish
+- `Vanilla JavaScript` handles filtering, rendering, exports, and app logic
+- `Firebase Authentication` manages secure sign-in and role-based access
+- `Cloud Firestore` stores user and asset data
+- `Chart.js` supports interactive reporting and analytics views
 
 ## Project Structure
 
@@ -86,7 +128,7 @@ sail-bsl-it-assets/
 `-- screenshots/
 ```
 
-## Getting Started
+## Local Setup
 
 ### 1. Clone the repository
 
@@ -97,25 +139,29 @@ cd sail-bsl-it-assets
 
 ### 2. Configure Firebase
 
-Update `firebase.js` with your Firebase project settings if you are deploying this to a different Firebase project.
+Add your Firebase project configuration in `firebase.js` if you are running this with your own project.
 
-### 3. Run locally
+### 3. Start a local server
 
-Because the project uses ES modules, serve it through a local server instead of opening files directly:
+Because this project uses ES modules, run it through a local server:
 
 ```bash
 npx serve . -p 3000
 ```
 
-Then open `http://localhost:3000`.
+Then open:
 
-### 4. Migrate records
+```text
+http://localhost:3000
+```
 
-Open `migrate.html` in the browser and use the migration flow to push asset data into Firestore.
+### 4. Migrate data
+
+Open `migrate.html` in the browser and push the asset data into Firestore.
 
 ### 5. Create users
 
-If you are using the admin tooling:
+If you want to create user accounts through the admin tools:
 
 ```bash
 cd admin-script
@@ -125,10 +171,17 @@ node create-users.js
 
 ## Security Notes
 
-- Keep Firebase credentials and admin service account files out of version control
-- Restrict Firestore rules and admin operations to authorized users only
-- Treat employee and infrastructure data as internal information
+- Keep service account keys and admin credentials out of version control
+- Restrict Firestore write access to authorized roles only
+- Treat employee and asset data as internal operational information
 
 ## Author
 
-Kaushal Kumar  
+**Kaushal Kumar**  
+IT Department, SAIL Bokaro Steel Plant
+
+---
+
+<div align="center">
+Built for real-world IT asset visibility inside SAIL BSL.
+</div>
