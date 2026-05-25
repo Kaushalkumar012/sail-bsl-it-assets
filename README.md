@@ -132,4 +132,3 @@ node create-users.js
 ## Author
 
 Kaushal Kumar  
-IT Department, SAIL Bokaro Steel Plant
