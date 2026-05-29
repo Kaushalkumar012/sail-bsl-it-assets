@@ -25,6 +25,10 @@ window.onload = async () => {
 async function loadEmployees() {
   const snap = await getDocs(collection(db, 'employees'));
   EMPLOYEES = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+  // mark duplicate serial numbers
+  const serialCount = {};
+  EMPLOYEES.forEach(e => { if (e['PC Sl. No.']) serialCount[e['PC Sl. No.']] = (serialCount[e['PC Sl. No.']] || 0) + 1; });
+  EMPLOYEES.forEach(e => { e['_dupSerial'] = !!(e['PC Sl. No.'] && serialCount[e['PC Sl. No.']] > 1); });
 }
 
 function setupUser() {
@@ -195,26 +199,43 @@ function scopedData() {
 function renderKPIs() {
   const src = scopedData();
   const total = src.length;
+  const distributed = src.filter(e => e['PC Make']).length;
+  const withIssues  = src.filter(e => getIssuesFor(e).length > 0).length;
   const withPrinter = src.filter(e => e['Printer Make']).length;
   const withScanner = src.filter(e => e['Scanner Make']).length;
-  const withUPS = src.filter(e => e['UPS MAKE']).length;
-  const depts = new Set(src.map(e => e['Deptt.']).filter(Boolean)).size;
-  const onDomain = src.filter(e => e['DOMAIN'] === 'YES').length;
+  const onDomain    = src.filter(e => e['DOMAIN'] === 'YES').length;
+  const dupSerials  = src.filter(e => e['_dupSerial']).length;
+
+  const issuePct = total ? Math.round(withIssues / total * 100) : 0;
+  const distPct  = total ? Math.round(distributed / total * 100) : 0;
 
   const kpis = [
-    { icon: 'fa-desktop', color: 'blue', num: total, label: user.role === 'dept_head' ? 'Dept Assets' : 'Total Assets' },
-    { icon: 'fa-building', color: 'purple', num: depts, label: 'Departments' },
-    { icon: 'fa-print', color: 'amber', num: withPrinter, label: 'With Printer' },
-    { icon: 'fa-barcode', color: 'cyan', num: withScanner, label: 'With Scanner' },
-    { icon: 'fa-bolt', color: 'green', num: withUPS, label: 'With UPS' },
-    { icon: 'fa-network-wired', color: 'red', num: onDomain, label: 'On Domain' },
+    { icon: 'fa-desktop',              color: 'blue',   num: total,       label: 'Total Assets',       sub: null },
+    { icon: 'fa-circle-check',         color: 'green',  num: distributed, label: 'PC Distributed',     sub: `${distPct}% assigned` },
+    { icon: 'fa-building',             color: 'purple', num: new Set(src.map(e=>e['Deptt.']).filter(Boolean)).size, label: 'Departments', sub: null },
+    { icon: 'fa-triangle-exclamation', color: 'amber',  num: withIssues,  label: 'Assets w/ Issues',   sub: `${issuePct}% of total`, click: "showPage('issues',document.querySelector('[data-page=\"issues\"]'))" },
+    { icon: 'fa-clone',                color: 'red',    num: dupSerials,  label: 'Duplicate Serials',  sub: 'same serial no.', click: "filterIssuesByKey('dup_serial')" },
+    { icon: 'fa-print',                color: 'cyan',   num: withPrinter, label: 'With Printer',       sub: null },
+    { icon: 'fa-barcode',              color: 'purple', num: withScanner, label: 'With Scanner',       sub: null },
+    { icon: 'fa-network-wired',        color: 'green',  num: onDomain,    label: 'On Domain',          sub: null },
   ];
 
   document.getElementById('kpi-grid').innerHTML = kpis.map(k => `
-    <div class="kpi-card">
+    <div class="kpi-card" ${k.click ? `onclick="${k.click}" style="cursor:pointer"` : ''}>
       <div class="kpi-icon ${k.color}"><i class="fas ${k.icon}"></i></div>
-      <div><div class="kpi-num">${k.num}</div><div class="kpi-label">${k.label}</div></div>
+      <div>
+        <div class="kpi-num">${k.num}</div>
+        <div class="kpi-label">${k.label}</div>
+        ${k.sub ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${k.sub}</div>` : ''}
+      </div>
     </div>`).join('');
+
+  // update nav badge
+  const badge = document.getElementById('issues-badge');
+  if (badge) {
+    badge.textContent = withIssues;
+    badge.style.display = withIssues > 0 ? 'inline-flex' : 'none';
+  }
 }
 
 // ===== CHARTS =====
@@ -227,12 +248,12 @@ function renderCharts() {
   const top15 = Object.entries(deptCount).sort((a,b) => b[1]-a[1]).slice(0,15);
   makeChartWithLabels('deptChart', 'bar', top15.map(d=>d[0]), top15.map(d=>d[1]), 'rgba(26,86,219,0.8)');
 
-  // PC Make
-  const pcCount = {};
-  src.forEach(e => { if (e['PC Make']) pcCount[e['PC Make']] = (pcCount[e['PC Make']] || 0) + 1; });
-  const pcEntries = Object.entries(pcCount).sort((a,b)=>b[1]-a[1]);
+  // PC Model Distribution
+  const pcModelCount = {};
+  src.forEach(e => { if (e['PC Model']) pcModelCount[e['PC Model']] = (pcModelCount[e['PC Model']] || 0) + 1; });
+  const pcEntries = Object.entries(pcModelCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
   makeChart('pcMakeChart', 'doughnut', pcEntries.map(d => `${d[0]} (${d[1]})`), pcEntries.map(d=>d[1]),
-    ['#1a56db','#10b981','#f59e0b','#ef4444','#7c3aed','#06b6d4']);
+    ['#1a56db','#10b981','#f59e0b','#ef4444','#7c3aed','#06b6d4','#f97316','#84cc16']);
 
   // RAM
   const ramCount = {};
@@ -409,56 +430,60 @@ function renderEmployeesTable() {
 
 // ===== DEPT GRID =====
 function renderDeptGrid() {
-  const src = user.role === 'hr' ? EMPLOYEES.filter(e => e['Deptt.'] === user.dept) : EMPLOYEES;
+  const src = scopedData();
   const deptMap = {};
   src.forEach(e => {
     const d = e['Deptt.']; if (!d) return;
-    if (!deptMap[d]) deptMap[d] = { count: 0, acer: 0, hp: 0, hlbs: 0, acerAio: 0, other: 0, printers: 0, scanners: 0, ups: 0, crossDept: 0 };
+    if (!deptMap[d]) deptMap[d] = { count: 0, tagged: 0, untagged: 0, makes: {}, printers: 0, scanners: 0, ups: 0, crossDept: 0 };
     deptMap[d].count++;
+    if (e['TAGGING NO.'] && String(e['TAGGING NO.']).trim()) deptMap[d].tagged++;
+    else deptMap[d].untagged++;
     const pc = e['PC Make'] || '';
-    if (pc === 'ACER') deptMap[d].acer++;
-    else if (pc === 'HP') deptMap[d].hp++;
-    else if (pc === 'HLBS AIO') deptMap[d].hlbs++;
-    else if (pc === 'ACER AIO') deptMap[d].acerAio++;
-    else if (pc) deptMap[d].other++;
+    if (pc) deptMap[d].makes[pc] = (deptMap[d].makes[pc] || 0) + 1;
     if (e['Printer Make']) deptMap[d].printers++;
     if (e['Scanner Make']) deptMap[d].scanners++;
     if (e['UPS MAKE']) deptMap[d].ups++;
-    // cross-dept: location dept name differs from assigned dept
     const loc = (e['Location'] || '').trim().toUpperCase();
     const dep = d.trim().toUpperCase();
     if (loc && loc !== dep && !loc.includes(dep) && !dep.includes(loc)) deptMap[d].crossDept++;
   });
 
+  const MAKE_COLORS = ['#1a56db','#10b981','#f59e0b','#7c3aed','#ef4444','#06b6d4','#f97316','#84cc16'];
+
   document.getElementById('dept-grid').innerHTML = Object.entries(deptMap)
     .sort((a,b) => b[1].count - a[1].count)
     .map(([name, s]) => {
-      const makes = [
-        { label: 'ACER', val: s.acer, color: '#1a56db' },
-        { label: 'HP', val: s.hp, color: '#10b981' },
-        { label: 'HLBS AIO', val: s.hlbs, color: '#f59e0b' },
-        { label: 'ACER AIO', val: s.acerAio, color: '#7c3aed' },
-        { label: 'Other', val: s.other, color: '#94a3b8' },
-      ].filter(m => m.val > 0);
-
-      const bars = makes.map(m => `
+      const makes = Object.entries(s.makes).sort((a,b)=>b[1]-a[1]);
+      const bars = makes.map((m, i) => `
         <div style="margin-bottom:6px">
           <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
-            <span style="color:var(--muted)">${m.label}</span>
-            <span style="color:var(--text);font-weight:700">${m.val} <span style="color:var(--muted);font-weight:400">(${Math.round(m.val/s.count*100)}%)</span></span>
+            <span style="color:var(--muted)">${m[0]}</span>
+            <span style="color:var(--text);font-weight:700">${m[1]} <span style="color:var(--muted);font-weight:400">(${Math.round(m[1]/s.count*100)}%)</span></span>
           </div>
           <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${Math.round(m.val/s.count*100)}%;background:${m.color};border-radius:3px;transition:width 0.6s"></div>
+            <div style="height:100%;width:${Math.round(m[1]/s.count*100)}%;background:${MAKE_COLORS[i%MAKE_COLORS.length]};border-radius:3px;transition:width 0.6s"></div>
           </div>
         </div>`).join('');
 
+      const tagPct = s.count ? Math.round(s.tagged / s.count * 100) : 0;
+
       return `
-    <div class="dept-card" onclick="filterByDept('${name}')">
+    <div class="dept-card" onclick="openDeptModal('${name.replace(/'/g,"\\'")}')"
+         style="cursor:pointer">
       <div class="dc-header">
         <div class="dc-name">${name}</div>
         <div class="dc-count">${s.count}</div>
       </div>
-      <div style="margin:12px 0 10px">${bars}</div>
+      <div style="margin:10px 0 6px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span style="color:#10b981"><i class="fas fa-tag"></i> Tagged: ${s.tagged}</span>
+          <span style="color:#ef4444"><i class="fas fa-tag-slash"></i> Untagged: ${s.untagged}</span>
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${tagPct}%;background:linear-gradient(90deg,#10b981,#059669);border-radius:3px;transition:width 0.6s"></div>
+        </div>
+      </div>
+      <div style="margin:8px 0 10px">${bars}</div>
       <div class="dc-stats">
         <div class="dc-stat"><div class="dc-stat-label">Printers</div><div class="dc-stat-val">${s.printers}</div></div>
         <div class="dc-stat"><div class="dc-stat-label">Scanners</div><div class="dc-stat-val">${s.scanners}</div></div>
@@ -469,13 +494,109 @@ function renderDeptGrid() {
     }).join('');
 }
 
+function openDeptModal(deptName) {
+  const src = scopedData().filter(e => e['Deptt.'] === deptName);
+  const tagged   = src.filter(e => e['TAGGING NO.'] && String(e['TAGGING NO.']).trim());
+  const untagged = src.filter(e => !e['TAGGING NO.'] || !String(e['TAGGING NO.']).trim());
+
+  const tagRow = (e, isTagged) => `
+    <tr>
+      <td>${isTagged ? `<span style="color:#10b981;font-weight:700">${e['TAGGING NO.']}</span>` : '<span style="color:#ef4444">—</span>'}</td>
+      <td>${cleanNum(e['Staff No.'])}</td>
+      <td>${e['Name'] || '-'}</td>
+      <td class="muted">${e['Section'] || '-'}</td>
+      <td>${e['PC Make'] ? e['PC Make']+' '+e['PC Model'] : '<span style="color:var(--muted)">—</span>'}</td>
+      <td><button class="btn-view" onclick="closeModal();openModal(${EMPLOYEES.indexOf(e)})">View</button></td>
+    </tr>`;
+
+  document.getElementById('modal-title').innerHTML =
+    `<i class="fas fa-building" style="color:var(--blue);margin-right:8px"></i>${deptName}
+     <span style="font-size:13px;color:var(--muted);font-weight:400;margin-left:8px">${src.length} total</span>`;
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#10b981">${tagged.length}</div>
+        <div style="font-size:12px;color:#34d399;font-weight:600;margin-top:4px"><i class="fas fa-tag"></i> Tagged</div>
+      </div>
+      <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#ef4444">${untagged.length}</div>
+        <div style="font-size:12px;color:#f87171;font-weight:600;margin-top:4px"><i class="fas fa-tag"></i> Untagged</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button onclick="switchDeptTab('tagged')" id="tab-tagged"
+        style="flex:1;padding:8px;border-radius:8px;border:1.5px solid #10b981;background:rgba(16,185,129,0.15);color:#10b981;font-weight:700;cursor:pointer;font-size:13px">
+        <i class="fas fa-tag"></i> Tagged (${tagged.length})
+      </button>
+      <button onclick="switchDeptTab('untagged')" id="tab-untagged"
+        style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-weight:600;cursor:pointer;font-size:13px">
+        <i class="fas fa-tag"></i> Untagged (${untagged.length})
+      </button>
+    </div>
+
+    <div id="dept-tab-content">
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:8px;color:var(--muted);text-align:left;font-weight:600">Tag No.</th>
+              <th style="padding:8px;color:var(--muted);text-align:left;font-weight:600">Staff No.</th>
+              <th style="padding:8px;color:var(--muted);text-align:left;font-weight:600">Name</th>
+              <th style="padding:8px;color:var(--muted);text-align:left;font-weight:600">Section</th>
+              <th style="padding:8px;color:var(--muted);text-align:left;font-weight:600">PC</th>
+              <th style="padding:8px;color:var(--muted);text-align:left;font-weight:600"></th>
+            </tr>
+          </thead>
+          <tbody id="dept-modal-tbody">
+            ${tagged.map(e => tagRow(e, true)).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // store for tab switching
+  window._deptModalTagged   = tagged;
+  window._deptModalUntagged = untagged;
+  window._tagRowFn = tagRow;
+
+  document.getElementById('modal-foot').innerHTML =
+    `<button class="btn-cancel" onclick="closeModal()">Close</button>
+     <button class="btn-export" onclick="exportDeptCSV('${deptName.replace(/'/g,"\\'")}')"><i class="fas fa-download"></i> Export</button>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+window.switchDeptTab = function(tab) {
+  const tagged   = window._deptModalTagged   || [];
+  const untagged = window._deptModalUntagged || [];
+  const tagRow   = window._tagRowFn;
+  const isTagged = tab === 'tagged';
+  const rows     = isTagged ? tagged : untagged;
+
+  document.getElementById('dept-modal-tbody').innerHTML = rows.map(e => tagRow(e, isTagged)).join('')
+    || `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">No ${tab} records</td></tr>`;
+
+  document.getElementById('tab-tagged').style.cssText   = `flex:1;padding:8px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:${isTagged?'700':'600'};border:1.5px solid ${isTagged?'#10b981':'var(--border)'};background:${isTagged?'rgba(16,185,129,0.15)':'transparent'};color:${isTagged?'#10b981':'var(--muted)'}`;
+  document.getElementById('tab-untagged').style.cssText = `flex:1;padding:8px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:${!isTagged?'700':'600'};border:1.5px solid ${!isTagged?'#ef4444':'var(--border)'};background:${!isTagged?'rgba(239,68,68,0.15)':'transparent'};color:${!isTagged?'#ef4444':'var(--muted)'}`;
+};
+
+window.exportDeptCSV = function(deptName) {
+  const src = scopedData().filter(e => e['Deptt.'] === deptName);
+  const headers = ['TAGGING NO.','Staff No.','Name','Section','Location','PC Make','PC Model','PC Sl. No.','DOMAIN','TRINETRA'];
+  const rows = src.map(e => headers.map(h => `"${(e[h]||'').toString().replace(/"/g,'""')}"`).join(','));
+  const csv  = [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `SAIL_${deptName.replace(/[^a-z0-9]/gi,'_')}.csv`;
+  a.click();
+};
+
 function filterByDept(dept) {
   showPage('assets', document.querySelector('[data-page="assets"]'));
   document.getElementById('asset-dept-filter').value = dept;
   filterAssets('');
 }
-
-// ===== REPORTS =====
 function renderReports() {
   const src = scopedData();
   const total = src.length;
@@ -494,12 +615,54 @@ function renderReports() {
     </div>`;
   };
 
-  // PC Summary
-  const pcCount = {};
-  src.forEach(e => { if (e['PC Make']) pcCount[e['PC Make']] = (pcCount[e['PC Make']]||0)+1; });
-  const pcMax = Math.max(...Object.values(pcCount), 1);
-  document.getElementById('pc-summary').innerHTML = Object.entries(pcCount).sort((a,b)=>b[1]-a[1])
-    .map(([k,v]) => reportRow(k, v, pcMax, '#2563eb')).join('');
+  // PC Summary — grouped by Model with LOT NO + dept tooltip on hover
+  const pcModelMap = {};
+  src.forEach(e => {
+    if (!e['PC Make']) return;
+    const model = e['PC Model'] || e['PC Make'];
+    if (!pcModelMap[model]) pcModelMap[model] = { count: 0, lots: new Set(), depts: {} };
+    pcModelMap[model].count++;
+    if (e['LOT ID']) pcModelMap[model].lots.add(e['LOT ID']);
+    const d = e['Deptt.'] || 'Unknown';
+    pcModelMap[model].depts[d] = (pcModelMap[model].depts[d] || 0) + 1;
+  });
+  const pcMax = Math.max(...Object.values(pcModelMap).map(v => v.count), 1);
+  const totalPCs = src.filter(e => e['PC Make']).length;
+
+  document.getElementById('pc-summary').innerHTML = Object.entries(pcModelMap)
+    .sort((a,b) => b[1].count - a[1].count)
+    .map(([model, v]) => {
+      const pct = Math.round(v.count / pcMax * 100);
+      const distPct = Math.round(v.count / totalPCs * 100);
+      const lotStr = [...v.lots].sort().join(', ') || '—';
+      const deptRows = Object.entries(v.depts).sort((a,b)=>b[1]-a[1])
+        .map(([d,n]) => `<div style="display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+          <span style="color:#94a3b8;font-size:11px">${d}</span>
+          <span style="color:#f8fafc;font-weight:700;font-size:11px">${n}</span>
+        </div>`).join('');
+
+      return `
+      <div class="pc-inv-row">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:13px;color:var(--text);font-weight:500">${model}
+            <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px">[${lotStr}]</span>
+          </span>
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${v.count}
+            <span style="color:var(--muted);font-size:11px;font-weight:400"> (${distPct}%)</span>
+          </span>
+        </div>
+        <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:#2563eb;border-radius:3px;transition:width 0.8s ease"></div>
+        </div>
+        <div class="pc-tooltip">
+          <div style="font-size:11px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">
+            <i class="fas fa-building" style="margin-right:5px"></i>Dept Distribution
+          </div>
+          ${deptRows}
+        </div>
+      </div>`;
+    }).join('');
+
 
   // Printer Summary
   const prCount = {};
@@ -508,9 +671,36 @@ function renderReports() {
   document.getElementById('printer-summary').innerHTML = Object.entries(prCount).sort((a,b)=>b[1]-a[1])
     .map(([k,v]) => reportRow(k, v, prMax, '#f59e0b')).join('');
 
-  // UPS Summary
+  // UPS Summary — normalize brand names
+  const upsNorm = v => {
+    const s = v.trim().toUpperCase();
+    if (/^APC/.test(s))                                    return 'APC';
+    if (/EMERSON|EMERSION|ERRTION/.test(s))                return 'EMERSON';
+    if (/LIEBERT|LIBERT|LIBERTIT|LIBERTUM|LIBERT I/.test(s)) return 'LIEBERT';
+    if (/VERTIV|VERTIX|VERTIY|VERTIR|VERTIN|VERTIU|VECTIV|VETIR|VERTIVE/.test(s)) return 'VERTIV';
+    if (/CYBER.?POWER|CBER POWER|CYBER$/.test(s))          return 'CYBERPOWER';
+    if (/NUMERIC|NUMBERIC|NUMRICE|NUMRIC/.test(s))         return 'NUMERIC';
+    if (/BPE|BPC|BPL/.test(s))                             return 'BPE/BPL';
+    if (/FOXIN/.test(s))                                   return 'FOXIN';
+    if (/MICROTEK|MCROTEK/.test(s))                        return 'MICROTEK';
+    if (/INTEX/.test(s))                                   return 'INTEX';
+    if (/PROTECT|ROTECT/.test(s))                          return 'PROTECT';
+    if (/LAPCARE/.test(s))                                 return 'LAPCARE';
+    if (/LUMINOUS/.test(s))                                return 'LUMINOUS';
+    if (/FRONTECH/.test(s))                                return 'FRONTECH';
+    if (/ZEBRONICS/.test(s))                               return 'ZEBRONICS';
+    if (/ELNOVA|ELENT|ELENOVA/.test(s))                    return 'ELNOVA';
+    if (/DIGITAL/.test(s))                                 return 'DIGITAL';
+    if (/^NO$|ROOM CLOSED|^PC$|^AIO$|ALL IN ONE|UPS.?6|^UPS$/.test(s)) return null; // junk
+    return s;
+  };
   const upsCount = {};
-  src.forEach(e => { if (e['UPS MAKE']) upsCount[e['UPS MAKE']] = (upsCount[e['UPS MAKE']]||0)+1; });
+  src.forEach(e => {
+    if (!e['UPS MAKE']) return;
+    const brand = upsNorm(e['UPS MAKE']);
+    if (!brand) return;
+    upsCount[brand] = (upsCount[brand] || 0) + 1;
+  });
   const upsMax = Math.max(...Object.values(upsCount), 1);
   document.getElementById('ups-summary').innerHTML = Object.entries(upsCount).sort((a,b)=>b[1]-a[1])
     .map(([k,v]) => reportRow(k, v, upsMax, '#10b981')).join('');
@@ -744,6 +934,7 @@ const ISSUE_CHECKS = [
   { key: 'not_domain',   label: 'Not on Domain',        icon: 'fa-shield-halved',   severity: 'high',   check: e => e['DOMAIN'] && e['DOMAIN'] !== 'YES' },
   { key: 'not_trinetra', label: 'TRINETRA Inactive',    icon: 'fa-circle-xmark',    severity: 'low',    check: e => e['TRINETRA'] && e['TRINETRA'] !== 'YES' },
   { key: 'no_monitor',   label: 'No Monitor',           icon: 'fa-display',         severity: 'low',    check: e => !e['Monitor Make'] },
+  { key: 'dup_serial',   label: 'Duplicate Serial No.', icon: 'fa-clone',           severity: 'high',   check: e => e['_dupSerial'] === true },
 ];
 
 const SEV_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#94a3b8' };
@@ -835,6 +1026,13 @@ function renderIssues() {
   renderIssuesTable();
 }
 
+function filterIssuesByKey(key) {
+  showPage('issues', document.querySelector('[data-page="issues"]'));
+  const sel = document.getElementById('issue-type-filter');
+  if (sel) sel.value = key;
+  filterIssues();
+}
+
 function filterIssues() {
   filteredIssues = buildAllIssues();
   issuePage = 1;
@@ -878,6 +1076,15 @@ function exportIssuesCSV() {
 // ===== UTILS =====
 function cleanNum(n) { return String(n||'').replace(/\.0$/, '').trim(); }
 
+window.showPcTooltip = function(row) {
+  const tip = row.querySelector('.pc-tooltip');
+  if (tip) tip.style.display = 'block';
+};
+window.hidePcTooltip = function(row) {
+  const tip = row.querySelector('.pc-tooltip');
+  if (tip) tip.style.display = 'none';
+};
+
 // ===== EXPOSE GLOBALS (needed for inline onclick handlers) =====
 window.showPage = showPage;
 window.toggleSidebar = toggleSidebar;
@@ -885,6 +1092,7 @@ window.logout = logout;
 window.filterAssets = filterAssets;
 window.filterEmployees = filterEmployees;
 window.filterByDept = filterByDept;
+window.openDeptModal = openDeptModal;
 window.filterIssues = filterIssues;
 window.openModal = openModal;
 window.openEdit = openEdit;
@@ -892,4 +1100,5 @@ window.saveEdit = saveEdit;
 window.closeModal = closeModal;
 window.globalSearch = globalSearch;
 window.exportCSV = exportCSV;
+window.filterIssuesByKey = filterIssuesByKey;
 window.exportIssuesCSV = exportIssuesCSV;
